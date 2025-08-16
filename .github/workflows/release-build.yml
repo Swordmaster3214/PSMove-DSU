@@ -1,0 +1,173 @@
+name: Release build (psmoveapi submodule)
+
+# Trigger on Release published (only build when you publish a release)
+on:
+  release:
+    types: [published]
+
+env:
+  BUILD_TYPE: Release
+  PSMOVE_INSTALL_DIR: ${{ github.workspace }}/build/psmove_install
+
+jobs:
+  linux:
+    name: Ubuntu (linux)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install build deps (apt)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake git pkg-config ccache libusb-1.0-0-dev libbluetooth-dev libudev-dev
+
+      - name: Get CMake
+        uses: lukka/get-cmake@v4
+
+      - name: Build & install psmoveapi (submodule)
+        run: |
+          mkdir -p build/psmove_src_build
+          cd build/psmove_src_build
+          cmake ../../third_party/psmoveapi -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DCMAKE_INSTALL_PREFIX=${PSMOVE_INSTALL_DIR} -DBUILD_EXAMPLES=OFF -DBUILD_TESTS=OFF
+          cmake --build . --parallel
+          cmake --install . --prefix ${PSMOVE_INSTALL_DIR}
+        shell: bash
+
+      - name: Configure & build DSU server
+        run: |
+          mkdir -p build/dsu
+          cd build/dsu
+          cmake ../.. -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DCMAKE_PREFIX_PATH=${PSMOVE_INSTALL_DIR}
+          cmake --build . --parallel
+        shell: bash
+
+      - name: Package linux binary
+        run: |
+          mkdir -p release_artifacts
+          BIN=build/dsu/dsu_server_psmove
+          if [ ! -f "$BIN" ]; then echo "Binary not found: $BIN"; exit 1; fi
+          tar -czf release_artifacts/dsu_server_psmove-linux.tar.gz -C build/dsu $(basename $BIN)
+          ls -lh release_artifacts
+        shell: bash
+
+      - name: Upload linux asset to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: release_artifacts/dsu_server_psmove-linux.tar.gz
+          asset_name: dsu_server_psmove-linux.tar.gz
+          asset_content_type: application/gzip
+
+  macos:
+    name: macOS
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repo (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Homebrew deps
+        run: |
+          brew update
+          brew install cmake pkg-config libusb
+      - name: Get CMake
+        uses: lukka/get-cmake@v4
+
+      - name: Build & install psmoveapi (submodule)
+        run: |
+          mkdir -p build/psmove_src_build
+          cd build/psmove_src_build
+          cmake ../../third_party/psmoveapi -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DCMAKE_INSTALL_PREFIX=${PSMOVE_INSTALL_DIR} -DBUILD_EXAMPLES=OFF -DBUILD_TESTS=OFF
+          cmake --build . --parallel
+          cmake --install . --prefix ${PSMOVE_INSTALL_DIR}
+        shell: bash
+
+      - name: Configure & build DSU server
+        run: |
+          mkdir -p build/dsu
+          cd build/dsu
+          cmake ../.. -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DCMAKE_PREFIX_PATH=${PSMOVE_INSTALL_DIR}
+          cmake --build . --parallel
+        shell: bash
+
+      - name: Package macOS binary
+        run: |
+          mkdir -p release_artifacts
+          BIN=build/dsu/dsu_server_psmove
+          if [ ! -f "$BIN" ]; then echo "Binary not found: $BIN"; exit 1; fi
+          tar -czf release_artifacts/dsu_server_psmove-macos.tar.gz -C build/dsu $(basename $BIN)
+          ls -lh release_artifacts
+        shell: bash
+
+      - name: Upload macOS asset to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: release_artifacts/dsu_server_psmove-macos.tar.gz
+          asset_name: dsu_server_psmove-macos.tar.gz
+          asset_content_type: application/gzip
+
+  windows_msys2:
+    name: Windows (MSYS2 / MinGW)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repo (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          update: true
+          msystem: MINGW64
+
+      - name: Install MSYS2 packages
+        shell: msys2 {0}
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm --needed mingw-w64-x86_64-toolchain mingw-w64-x86_64-cmake mingw-w64-x86_64-pkg-config mingw-w64-x86_64-libusb mingw-w64-x86_64-libudev
+
+      - name: Build & install psmoveapi (MSYS2)
+        shell: msys2 {0}
+        run: |
+          mkdir -p /c/Users/RunnerAdmin/workspace/build/psmove_src_build
+          cd /c/Users/RunnerAdmin/workspace/build/psmove_src_build
+          cmake /c/Users/RunnerAdmin/workspace/third_party/psmoveapi -G "MSYS Makefiles" -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DCMAKE_INSTALL_PREFIX=/c/Users/RunnerAdmin/workspace/build/psmove_install -DBUILD_EXAMPLES=OFF -DBUILD_TESTS=OFF
+          cmake --build . --parallel
+          cmake --install . --prefix /c/Users/RunnerAdmin/workspace/build/psmove_install
+
+      - name: Configure & build DSU server (MSYS2)
+        shell: msys2 {0}
+        run: |
+          mkdir -p /c/Users/RunnerAdmin/workspace/build/dsu
+          cd /c/Users/RunnerAdmin/workspace/build/dsu
+          cmake /c/Users/RunnerAdmin/workspace -G "MSYS Makefiles" -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DCMAKE_PREFIX_PATH=/c/Users/RunnerAdmin/workspace/build/psmove_install
+          cmake --build . --parallel
+
+      - name: Package windows binary
+        shell: msys2 {0}
+        run: |
+          mkdir -p release_artifacts
+          BIN=/c/Users/RunnerAdmin/workspace/build/dsu/dsu_server_psmove.exe
+          if [ ! -f "$BIN" ]; then echo "Binary not found: $BIN"; exit 1; fi
+          zip -j release_artifacts/dsu_server_psmove-windows.zip $BIN
+          ls -lh release_artifacts
+
+      - name: Upload windows asset to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: build/dsu/release_artifacts/dsu_server_psmove-windows.zip
+          asset_name: dsu_server_psmove-windows.zip
+          asset_content_type: application/zip
