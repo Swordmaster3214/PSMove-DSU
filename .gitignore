@@ -39,4 +39,4 @@
 
 # debug information files
 *.dwo
-/test
+test/**
