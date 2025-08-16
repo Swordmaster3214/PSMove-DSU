@@ -15,20 +15,79 @@ SELECT | Share
 START | Options
 T | R2
 PS | PS
-## Compilation instructions
-Ensure that you have https://github.com/thp/psmoveapi installed, as that is a required dependency for this project.
-### Linux/macOS
+## Compiling instructions
+### Linux (Arch, Debian, Ubuntu, etc.)
+
+**Dependencies:**
+- g++ (C++17 or newer)
+- make
+- psmoveapi (on Arch: psmoveapi-git from the AUR, or build from source)
+
+**Build:**
 ```
-g++ -O2 -std=c++17 dsu_server_psmove.cpp -o dsu_server_psmove -pthread $(pkg-config --cflags --libs libpsmoveapi)
+g++ -O2 -std=c++17 dsu_server_psmove.cpp -o dsu_server_psmove -lpsmoveapi -lpthread
 ```
-### Windows (MinGW)
+
+**Run:**
 ```
-g++ -O2 -std=c++17 dsu_server_psmove.cpp -o dsu_server_psmove.exe -lpsmoveapi -lws2_32 -pthread
+./dsu_server_psmove
 ```
-### Windows (MSVC)
+
+---
+
+### Windows
+
+#### MinGW (MSYS2)
+
+**Dependencies:**
 ```
-cl /O2 /std:c++17 dsu_server_psmove.cpp /link psmoveapi.lib ws2_32.lib
+pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-psmoveapi make
 ```
+
+**Build:**
+```
+g++ -O2 -std=c++17 dsu_server_psmove.cpp -o dsu_server_psmove.exe -lpsmoveapi -lws2_32 -lwinmm
+```
+
+**Run:**
+```
+./dsu_server_psmove.exe
+```
+
+#### MSVC (Visual Studio)
+
+1. Create a new **Console App** project.  
+2. Add `dsu_server_psmove.cpp` to the project.  
+3. Set the C++ language standard to **C++17**.  
+4. Link against `psmoveapi.lib` (build from source if not provided).  
+5. Ensure `psmoveapi.dll` is available in your PATH or in the same folder as the `.exe`.  
+
+Build and run inside Visual Studio.
+
+---
+
+### macOS
+
+**Dependencies:**
+- Xcode Command Line Tools:  
+  ```
+  xcode-select --install
+  ```
+- [Homebrew](https://brew.sh/), then:  
+  ```
+  brew install psmoveapi
+  ```
+
+**Build:**
+```
+clang++ -O2 -std=c++17 dsu_server_psmove.cpp -o dsu_server_psmove -lpsmoveapi -lpthread
+```
+
+**Run:**
+```
+./dsu_server_psmove
+```
+
 ## Licensing
 License details for this project are in the LICENSE file.
 
