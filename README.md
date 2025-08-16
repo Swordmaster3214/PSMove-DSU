@@ -1,7 +1,7 @@
 # PSMove-DSU
 A Cross Platform DSU/Cemuhook Server using psmoveapi for Dolphin Emulator to understand the Playstation Move controller's accurate sixaxis orientation stuff.
 ## Usage instructions
-Make sure you have already paired your PS Move controller with your system using https://github.com/thp/psmoveapi and have it turned on. Then run the DSU server, and you will be good to go. Connect your DSU server (localhost, port 26760) and map your buttons in Dolphin or some other DSU-supported emulator as you please. Note that you do not need psmoveapi installed in order to run the binary, however, you need to have had it installed at one point to pair the controller. I plan to change this in the future, with the pairing process built in. Also, only one controller at a time for now.
+If your controller is already paired with your PC, just run the server. If not, connect your PS Move controller via USB and let the automatic pairing utility handle it for you. Note that it may require elevated privileges. Connect your DSU server (localhost, port 26760) and map your buttons in Dolphin or some other DSU-supported emulator as you please. Note that you do not need psmoveapi installed in order to run the binary. Also, only one controller at a time for now.
 ### Button Mappings
 
 Button | Mapping
@@ -20,8 +20,7 @@ PS | PS
 
 **Dependencies:**
 - g++ (C++17 or newer)
-- make
-- psmoveapi (on Arch: psmoveapi-git from the AUR, or build from source)
+- psmoveapi (on Arch: psmoveapi-git from the AUR, or build from source, or use the release)
 
 **Build:**
 ```
