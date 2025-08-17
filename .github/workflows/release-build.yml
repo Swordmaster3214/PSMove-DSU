@@ -31,7 +31,7 @@ jobs:
              libusb-1.0-0-dev libbluetooth-dev libudev-dev libdbus-1-dev
 
       - name: Get CMake
-        uses: lukka/get-cmake@v3
+        uses: lukka/get-cmake@latest
 
       - name: Build & install psmoveapi (submodule)
         run: |
@@ -101,7 +101,7 @@ jobs:
           brew install cmake pkg-config libusb
 
       - name: Get CMake
-        uses: lukka/get-cmake@v3
+        uses: lukka/get-cmake@latest
 
       - name: Build & install psmoveapi (submodule)
         env:
