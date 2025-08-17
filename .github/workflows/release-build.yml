@@ -1,8 +1,6 @@
 name: Release build (use psmoveapi prebuilt binaries)
 env:
-  # Set the psmoveapi version tag you want to use (recommend pinning)
-  PSMOVE_VERSION: "4.0.12"
-  PSMOVE_BASE_URL: "https://github.com/thp/psmoveapi/releases/download/${{ env.PSMOVE_VERSION }}"
+  PSMOVE_BASE_URL: "https://github.com/thp/psmoveapi/releases/download/4.0.12"
   # Path where the prebuilt psmoveapi will be extracted
   INSTALL_DIR: "${{ github.workspace }}/psmoveapi_install"
   # Name prefix for produced artifacts
@@ -26,7 +24,7 @@ jobs:
       - name: Download and extract psmoveapi (Linux)
         run: |
           mkdir -p "${INSTALL_DIR}"
-          curl -L -o psmoveapi.tar.gz "${{ env.PSMOVE_BASE_URL }}/psmoveapi-${{ env.PSMOVE_VERSION }}-linux.tar.gz"
+          curl -L -o psmoveapi.tar.gz "${{ env.PSMOVE_BASE_URL }}/psmoveapi-4.0.12-linux.tar.gz"
           tar -xzf psmoveapi.tar.gz -C "${INSTALL_DIR}" --strip-components=1
           echo "Contents of ${INSTALL_DIR}:"
           ls -la "${INSTALL_DIR}"
@@ -49,7 +47,7 @@ jobs:
             cp -v ${INSTALL_DIR}/lib/*.so* release_artifacts/run/ 2>/dev/null || true
           fi
           # Make packaged tar.gz
-          tar -C release_artifacts -czf release_artifacts/${{ env.ARTIFACT_PREFIX }}_linux_${{ env.PSMOVE_VERSION }}.tar.gz run
+          tar -C release_artifacts -czf release_artifacts/${{ env.ARTIFACT_PREFIX }}_linux_4.0.12.tar.gz run
           ls -lh release_artifacts
 
       - name: Upload to Release (Linux)
@@ -59,8 +57,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: release_artifacts/${{ env.ARTIFACT_PREFIX }}_linux_${{ env.PSMOVE_VERSION }}.tar.gz
-          asset_name: ${{ env.ARTIFACT_PREFIX }}_linux_${{ env.PSMOVE_VERSION }}.tar.gz
+          asset_path: release_artifacts/${{ env.ARTIFACT_PREFIX }}_linux_4.0.12.tar.gz
+          asset_name: ${{ env.ARTIFACT_PREFIX }}_linux_4.0.12.tar.gz
           asset_content_type: application/gzip
 
   macos:
@@ -76,7 +74,7 @@ jobs:
       - name: Download and extract psmoveapi (macOS)
         run: |
           mkdir -p "${INSTALL_DIR}"
-          curl -L -o psmoveapi.tar.gz "${{ env.PSMOVE_BASE_URL }}/psmoveapi-${{ env.PSMOVE_VERSION }}-macos.tar.gz"
+          curl -L -o psmoveapi.tar.gz "${{ env.PSMOVE_BASE_URL }}/psmoveapi-4.0.12-macos.tar.gz"
           tar -xzf psmoveapi.tar.gz -C "${INSTALL_DIR}" --strip-components=1
           echo "Contents of ${INSTALL_DIR}:"
           ls -la "${INSTALL_DIR}"
@@ -97,7 +95,7 @@ jobs:
           if [ -d "${INSTALL_DIR}/lib" ]; then
             cp -v ${INSTALL_DIR}/lib/*.dylib release_artifacts/run/ 2>/dev/null || true
           fi
-          tar -C release_artifacts -czf release_artifacts/${{ env.ARTIFACT_PREFIX }}_macos_${{ env.PSMOVE_VERSION }}.tar.gz run
+          tar -C release_artifacts -czf release_artifacts/${{ env.ARTIFACT_PREFIX }}_macos_4.0.12.tar.gz run
           ls -lh release_artifacts
 
       - name: Upload to Release (macOS)
@@ -107,8 +105,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: release_artifacts/${{ env.ARTIFACT_PREFIX }}_macos_${{ env.PSMOVE_VERSION }}.tar.gz
-          asset_name: ${{ env.ARTIFACT_PREFIX }}_macos_${{ env.PSMOVE_VERSION }}.tar.gz
+          asset_path: release_artifacts/${{ env.ARTIFACT_PREFIX }}_macos_4.0.12.tar.gz
+          asset_name: ${{ env.ARTIFACT_PREFIX }}_macos_4.0.12.tar.gz
           asset_content_type: application/gzip
 
   windows_msvc:
@@ -126,9 +124,9 @@ jobs:
           $arch = "${{ matrix.arch }}"
           mkdir -p psmoveapi_install
           if ($arch -eq "x64") {
-            $url = "${{ env.PSMOVE_BASE_URL }}/psmoveapi-${{ env.PSMOVE_VERSION }}-windows-msvc2017-x64.zip"
+            $url = "${{ env.PSMOVE_BASE_URL }}/psmoveapi-4.0.12-windows-msvc2017-x64.zip"
           } else {
-            $url = "${{ env.PSMOVE_BASE_URL }}/psmoveapi-${{ env.PSMOVE_VERSION }}-windows-msvc2017-x86.zip"
+            $url = "${{ env.PSMOVE_BASE_URL }}/psmoveapi-4.0.12-windows-msvc2017-x86.zip"
           }
           Write-Host "Downloading $url"
           Invoke-WebRequest -Uri $url -OutFile psmoveapi.zip
@@ -164,7 +162,7 @@ jobs:
           foreach ($pat in $possible) {
             Get-ChildItem -Path $pat -ErrorAction SilentlyContinue | ForEach-Object { Copy-Item $_.FullName -Destination $outdir -Force }
           }
-          $zip = "release_artifacts\${{ env.ARTIFACT_PREFIX }}_windows_msvc_${{ matrix.arch }}_${{ env.PSMOVE_VERSION }}.zip"
+          $zip = "release_artifacts\${{ env.ARTIFACT_PREFIX }}_windows_msvc_${{ matrix.arch }}_4.0.12.zip"
           if (Test-Path $zip) { Remove-Item $zip -Force }
           Compress-Archive -Path $outdir\* -DestinationPath $zip -Force
           Write-Host "Packaged $zip"
@@ -176,8 +174,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: release_artifacts/${{ env.ARTIFACT_PREFIX }}_windows_msvc_${{ matrix.arch }}_${{ env.PSMOVE_VERSION }}.zip
-          asset_name: ${{ env.ARTIFACT_PREFIX }}_windows_msvc_${{ matrix.arch }}_${{ env.PSMOVE_VERSION }}.zip
+          asset_path: release_artifacts/${{ env.ARTIFACT_PREFIX }}_windows_msvc_${{ matrix.arch }}_4.0.12.zip
+          asset_name: ${{ env.ARTIFACT_PREFIX }}_windows_msvc_${{ matrix.arch }}_4.0.12.zip
           asset_content_type: application/zip
 
   windows_mingw:
@@ -202,9 +200,9 @@ jobs:
           arch="${{ matrix.arch }}"
           mkdir -p /c/Users/RunnerAdmin/workspace/psmoveapi_install
           if [ "$arch" = "mingw64" ]; then
-            url="${{ env.PSMOVE_BASE_URL }}/psmoveapi-${{ env.PSMOVE_VERSION }}-mingw64.zip"
+            url="${{ env.PSMOVE_BASE_URL }}/psmoveapi-4.0.12-mingw64.zip"
           else
-            url="${{ env.PSMOVE_BASE_URL }}/psmoveapi-${{ env.PSMOVE_VERSION }}-mingw32.zip"
+            url="${{ env.PSMOVE_BASE_URL }}/psmoveapi-4.0.12-mingw32.zip"
           fi
           echo "Downloading $url"
           curl -L -o psmoveapi.zip "$url"
@@ -236,7 +234,7 @@ jobs:
           # copy DLLs from psmoveapi_install lib or bin if present
           cp -v psmoveapi_install/lib/*.dll release_artifacts/run/ 2>/dev/null || true
           cp -v psmoveapi_install/bin/*.dll release_artifacts/run/ 2>/dev/null || true
-          zip -j release_artifacts/${{ env.ARTIFACT_PREFIX }}_windows_mingw_${{ matrix.arch }}_${{ env.PSMOVE_VERSION }}.zip release_artifacts/run/*
+          zip -j release_artifacts/${{ env.ARTIFACT_PREFIX }}_windows_mingw_${{ matrix.arch }}_4.0.12.zip release_artifacts/run/*
 
       - name: Upload to Release (MinGW)
         if: ${{ github.event_name == 'release' }}
@@ -245,6 +243,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: release_artifacts/${{ env.ARTIFACT_PREFIX }}_windows_mingw_${{ matrix.arch }}_${{ env.PSMOVE_VERSION }}.zip
-          asset_name: ${{ env.ARTIFACT_PREFIX }}_windows_mingw_${{ matrix.arch }}_${{ env.PSMOVE_VERSION }}.zip
+          asset_path: release_artifacts/${{ env.ARTIFACT_PREFIX }}_windows_mingw_${{ matrix.arch }}_4.0.12.zip
+          asset_name: ${{ env.ARTIFACT_PREFIX }}_windows_mingw_${{ matrix.arch }}_4.0.12.zip
           asset_content_type: application/zip
