@@ -137,6 +137,7 @@ jobs:
       - name: Get latest release (on workflow_dispatch)
         if: github.event_name == 'workflow_dispatch'
         id: latest_release
+        shell: bash
         run: |
           # Try to get the latest release
           if LATEST_RELEASE=$(gh api repos/${{ github.repository }}/releases/latest --jq '.tag_name' 2>/dev/null); then
@@ -153,6 +154,7 @@ jobs:
 
       - name: Create release if none exists (on workflow_dispatch)
         if: github.event_name == 'workflow_dispatch' && steps.latest_release.outputs.exists == 'false'
+        shell: bash
         run: |
           gh release create ${{ steps.latest_release.outputs.tag_name }} \
             --title "Release ${{ steps.latest_release.outputs.tag_name }}" \
@@ -163,6 +165,7 @@ jobs:
 
       - name: Upload to release (on workflow_dispatch)
         if: github.event_name == 'workflow_dispatch'
+        shell: bash
         run: |
           gh release upload ${{ steps.latest_release.outputs.tag_name }} \
             "artifacts/${{ steps.artifact.outputs.name }}" \
