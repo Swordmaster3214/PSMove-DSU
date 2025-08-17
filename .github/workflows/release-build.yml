@@ -2,7 +2,8 @@ name: Build DSU Server
 
 on:
   release:
-    types: [created, published, edited]
+    types: [published]
+  workflow_run:
 
 jobs:
   build-linux:
