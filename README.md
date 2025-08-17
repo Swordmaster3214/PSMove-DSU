@@ -17,11 +17,10 @@ The server translates PS Move controller input (accelerometer, gyroscope, and bu
 ## Features
 
 - **Cross-platform support**: Windows, macOS, and Linux
-- **Real-time motion data**: Accelerometer, gyroscope, and magnetometer
+- **Real-time motion data**: Accelerometer and gyroscope
 - **Button support**: All PS Move controller buttons
 - **DSU/Cemuhook protocol**: Compatible with all DSU-enabled applications
 - **Automatic controller detection**: Plug and play functionality
-- **Low latency**: Optimized for gaming performance
 
 ## Quick Start
 
@@ -46,13 +45,6 @@ The server translates PS Move controller input (accelerometer, gyroscope, and bu
 
 4. **Configure your emulator** to connect to `127.0.0.1:26760` (default DSU port)
 
-### Controller Setup
-
-#### Bluetooth Pairing
-1. Connect the PS Move controller via USB first
-2. Use the pairing utility in the program to pair via Bluetooth, note that it may require elevated permissions because it accesses your device's bluetooth stack
-3. Once paired, disconnect the cable and power it on, a solid red light indicates that the controller can be used wirelessly
-
 ### Button Mappings
 
 Button | Mapping
@@ -66,6 +58,15 @@ SELECT | Share
 START | Options
 T | R2
 PS | PS
+
+### Controller Setup
+
+#### Bluetooth Pairing
+**Note:** You will not need to do the following steps if you have already paired your controller with your computer using [PSMoveAPI](https://github.com/thp/psmoveapi)
+1. Connect the PS Move controller via USB first
+2. Use the auto-pairing utility in the program to pair via Bluetooth, note that it may require elevated permissions because it accesses your device's bluetooth stack
+
+Once paired, disconnect the cable and power it on, a solid red light indicates that the controller can be used wirelessly
 
 #### USB Connection
 Simply connect the PS Move controller via USB cable - it should be detected automatically.
@@ -189,14 +190,13 @@ sudo usermod -a -G plugdev $USER
 
 ### Protocol Support
 - **DSU Protocol Version 1001**: Full compatibility with Cemuhook standard
-- **Motion Data**: 16-bit precision accelerometer, gyroscope, magnetometer
+- **Motion Data**: 32-bit precision accelerometer and gyroscope
 - **Button Data**: All PS Move buttons including trigger
 - **Timestamp Synchronization**: Accurate timing for motion prediction
 
 ### Performance
 - **Low latency**: Direct USB/Bluetooth communication
-- **60+ FPS**: Suitable for responsive gaming
-- **Multi-controller**: Supports multiple PS Move controllers simultaneously
+- **Single-controller**: Supports one PS Move controller
 
 ## Contributing
 
