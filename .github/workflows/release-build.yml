@@ -134,16 +134,35 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         id: latest_release
         run: |
-          LATEST_RELEASE=$(gh api repos/${{ github.repository }}/releases/latest --jq '.id')
-          echo "release_id=$LATEST_RELEASE" >> $GITHUB_OUTPUT
+          # Try to get the latest release
+          if LATEST_RELEASE=$(gh api repos/${{ github.repository }}/releases/latest --jq '.tag_name' 2>/dev/null); then
+            echo "Found latest release: $LATEST_RELEASE"
+            echo "tag_name=$LATEST_RELEASE" >> $GITHUB_OUTPUT
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "No releases found - will create a new one"
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "tag_name=v1.0.0" >> $GITHUB_OUTPUT
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload to latest release (on workflow_dispatch)
+      - name: Create release if none exists (on workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch' && steps.latest_release.outputs.exists == 'false'
+        run: |
+          gh release create ${{ steps.latest_release.outputs.tag_name }} \
+            --title "Release ${{ steps.latest_release.outputs.tag_name }}" \
+            --notes "Automated release created by workflow dispatch" \
+            --repo ${{ github.repository }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload to release (on workflow_dispatch)
         if: github.event_name == 'workflow_dispatch'
         run: |
-          gh release upload ${{ steps.latest_release.outputs.release_id }} \
+          gh release upload ${{ steps.latest_release.outputs.tag_name }} \
             "artifacts/${{ steps.artifact.outputs.name }}" \
-            --repo ${{ github.repository }}
+            --repo ${{ github.repository }} \
+            --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
