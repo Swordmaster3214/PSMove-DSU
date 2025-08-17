@@ -23,8 +23,7 @@ jobs:
 
       - name: Download psmoveapi prebuilt
         run: |
-          curl -L -o psmoveapi.${{ matrix.asset }} \
-            https://github.com/thp/psmoveapi/releases/download/4.0.12/${{ matrix.asset }}
+          curl -L -o psmoveapi.${{ matrix.asset }} https://github.com/thp/psmoveapi/releases/download/4.0.12/${{ matrix.asset }}
 
       - name: Extract psmoveapi (Linux/macOS)
         if: runner.os != 'Windows'
