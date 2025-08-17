@@ -1,108 +1,70 @@
-name: Build DSU Server
+name: Build and Release
 
 on:
   release:
-    types: [published]
+    types: [created]
   workflow_dispatch:
 
 jobs:
-  build-linux:
-    runs-on: ubuntu-latest
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            asset: psmoveapi-4.0.12-linux.tar.gz
+          - os: macos-13
+            asset: psmoveapi-4.0.12-macos.tar.gz
+          - os: windows-latest
+            asset: psmoveapi-4.0.12-windows-msvc2017-x64.zip
+
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y libbluetooth-dev pkg-config cmake make g++
-
-      - name: Download psmoveapi
+      - name: Download psmoveapi prebuilt
         run: |
-          mkdir -p psmoveapi_install
-          curl -L https://github.com/thp/psmoveapi/releases/download/4.0.12/psmoveapi-4.0.12-linux.tar.gz -o psmoveapi.tar.gz
-          tar -xzf psmoveapi.tar.gz -C psmoveapi_install --strip-components=1
+          curl -L -o psmoveapi.${{ matrix.asset }} \
+            https://github.com/thp/psmoveapi/releases/download/4.0.12/${{ matrix.asset }}
+
+      - name: Extract psmoveapi (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p ${{ github.workspace }}/psmoveapi_install
+          tar -xzf psmoveapi.${{ matrix.asset }} -C ${{ github.workspace }}/psmoveapi_install --strip-components=1
+
+      - name: Extract psmoveapi (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          mkdir -p ${{ github.workspace }}\psmoveapi_install
+          7z x psmoveapi.${{ matrix.asset }} -o${{ github.workspace }}\psmoveapi_install
+
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libusb-1.0-0-dev libbluetooth-dev pkg-config
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install libusb pkg-config
+
+      - name: Configure
+        run: cmake -S . -B build -DPSMOVE_ROOT=${{ github.workspace }}/psmoveapi_install
 
       - name: Build
-        run: |
-          cmake -S . -B build -DPSMOVE_ROOT=$PWD/psmoveapi_install
-          cmake --build build --config Release
+        run: cmake --build build --config Release -j 4
 
-      - name: Upload release asset
+      - name: Determine release tag
+        id: get_release
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "tag=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          else
+            # fetch the latest release tag
+            latest=$(curl -s https://api.github.com/repos/${{ github.repository }}/releases/latest | jq -r .tag_name)
+            echo "tag=$latest" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload Release Asset
         uses: softprops/action-gh-release@v1
         with:
-          files: build/dsu_server_psmove
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  build-macos:
-    runs-on: macos-13 # Intel runner to match x86_64 binaries
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Install dependencies
-        run: brew install cmake pkg-config
-
-      - name: Download psmoveapi
-        run: |
-          mkdir -p psmoveapi_install
-          curl -L https://github.com/thp/psmoveapi/releases/download/4.0.12/psmoveapi-4.0.12-macos.tar.gz -o psmoveapi.tar.gz
-          tar -xzf psmoveapi.tar.gz -C psmoveapi_install --strip-components=1
-
-      - name: Build
-        run: |
-          cmake -S . -B build -DPSMOVE_ROOT=$PWD/psmoveapi_install
-          cmake --build build --config Release
-
-      - name: Upload release asset
-        uses: softprops/action-gh-release@v1
-        with:
-          files: build/dsu_server_psmove
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  build-windows-msvc:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Download psmoveapi
-        run: |
-          mkdir psmoveapi_install
-          curl -L https://github.com/thp/psmoveapi/releases/download/4.0.12/psmoveapi-4.0.12-windows-msvc2017-x64.zip -o psmoveapi.zip
-          tar -xf psmoveapi.zip -C psmoveapi_install --strip-components=1
-
-      - name: Build (MSVC)
-        run: |
-          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DPSMOVE_ROOT=%cd%/psmoveapi_install
-          cmake --build build --config Release
-
-      - name: Upload release asset
-        uses: softprops/action-gh-release@v1
-        with:
-          files: build/Release/dsu_server_psmove.exe
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  build-windows-mingw:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Install unzip
-        run: choco install unzip -y
-
-      - name: Download psmoveapi
-        run: |
-          mkdir psmoveapi_install
-          curl -L https://github.com/thp/psmoveapi/releases/download/4.0.12/psmoveapi-4.0.12-mingw64.zip -o psmoveapi.zip
-          unzip psmoveapi.zip -d psmoveapi_install
-
-      - name: Build (MinGW)
-        run: |
-          cmake -S . -B build -G "MinGW Makefiles" -DPSMOVE_ROOT=%cd%/psmoveapi_install
-          cmake --build build --config Release
-
-      - name: Upload release asset
-        uses: softprops/action-gh-release@v1
-        with:
-          files: build/dsu_server_psmove.exe
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          files: build/dsu_server_psmove${{ runner.os == 'Windows' && '.exe' || '' }}
+          tag_name: ${{ steps.get_release.outputs.tag }}
