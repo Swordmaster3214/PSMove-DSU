@@ -26,7 +26,6 @@ jobs:
       - name: Install build deps (apt)
         run: |
           sudo apt-get update
-          # Add dbus dev so psmoveapi can be configured
           sudo apt-get install -y build-essential cmake git pkg-config ccache \
              libusb-1.0-0-dev libbluetooth-dev libudev-dev libdbus-1-dev
 
@@ -74,6 +73,7 @@ jobs:
           ls -lh release_artifacts
 
       - name: Upload linux asset to Release
+        if: ${{ github.event_name == 'release' }}
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -105,7 +105,6 @@ jobs:
 
       - name: Build & install psmoveapi (submodule)
         env:
-          # ensure pkg-config can find Homebrew libs (handles Intel vs Apple Silicon)
           PKG_CONFIG_PATH: ${{ github.workspace }}/build/psmove_install/lib/pkgconfig:$(brew --prefix libusb)/lib/pkgconfig:${PKG_CONFIG_PATH}
         run: |
           set -e
@@ -124,7 +123,6 @@ jobs:
           ls -la ${PSMOVE_INSTALL_DIR}/lib/pkgconfig || true
           echo "pkg-config reports:"
           pkg-config --modversion psmoveapi || true
-          # check libusb visibility
           pkg-config --modversion libusb-1.0 || true
         shell: bash
 
@@ -149,6 +147,7 @@ jobs:
         shell: bash
 
       - name: Upload macOS asset to Release
+        if: ${{ github.event_name == 'release' }}
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -173,10 +172,6 @@ jobs:
           update: true
           msystem: MINGW64
 
-      - name: Ensure submodules are initialized (MSYS2)
-        shell: msys2 {0}
-        run: git submodule update --init --recursive
-
       - name: Install MSYS2 packages
         shell: msys2 {0}
         run: |
@@ -187,6 +182,7 @@ jobs:
         shell: msys2 {0}
         run: |
           set -e
+          # GITHUB_WORKSPACE is available in MSYS2 shell as /c/Users/runner/work/<repo>/<repo>
           mkdir -p /c/Users/RunnerAdmin/workspace/build/psmove_src_build
           mkdir -p /c/Users/RunnerAdmin/workspace/build/psmove_install
           cd /c/Users/RunnerAdmin/workspace/build/psmove_src_build
@@ -218,7 +214,9 @@ jobs:
           if [ ! -f "$BIN" ]; then echo "Binary not found: $BIN"; exit 1; fi
           zip -j /c/Users/RunnerAdmin/workspace/release_artifacts/dsu_server_psmove-windows.zip $BIN
           ls -la /c/Users/RunnerAdmin/workspace/release_artifacts
+
       - name: Upload windows asset to Release
+        if: ${{ github.event_name == 'release' }}
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
