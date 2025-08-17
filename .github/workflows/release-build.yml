@@ -26,7 +26,7 @@ jobs:
           sudo apt-get install -y build-essential cmake git pkg-config ccache libusb-1.0-0-dev libbluetooth-dev libudev-dev
 
       - name: Get CMake
-        uses: lukka/get-cmake@v3
+        uses: lukka/get-cmake@latest
 
       - name: Build & install psmoveapi (submodule)
         run: |
@@ -78,7 +78,7 @@ jobs:
           brew update
           brew install cmake pkg-config libusb
       - name: Get CMake
-        uses: lukka/get-cmake@v3
+        uses: lukka/get-cmake@latest
 
       - name: Build & install psmoveapi (submodule)
         run: |
@@ -135,7 +135,7 @@ jobs:
         shell: msys2 {0}
         run: |
           pacman -Syu --noconfirm
-          pacman -S --noconfirm --needed mingw-w64-x86_64-toolchain mingw-w64-x86_64-cmake mingw-w64-x86_64-pkg-config mingw-w64-x86_64-libusb mingw-w64-x86_64-libudev
+          pacman -S --noconfirm --needed mingw-w64-x86_64-toolchain mingw-w64-x86_64-cmake mingw-w64-x86_64-pkg-config mingw-w64-x86_64-libusb
 
       - name: Build & install psmoveapi (MSYS2)
         shell: msys2 {0}
