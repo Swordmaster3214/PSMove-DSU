@@ -1,248 +1,107 @@
-name: Release build (use psmoveapi prebuilt binaries)
-env:
-  PSMOVE_BASE_URL: "https://github.com/thp/psmoveapi/releases/download/4.0.12"
-  # Path where the prebuilt psmoveapi will be extracted
-  INSTALL_DIR: "${{ github.workspace }}/psmoveapi_install"
-  # Name prefix for produced artifacts
-  ARTIFACT_PREFIX: "dsu_server"
+name: Build DSU Server
+
 on:
   release:
-    types: [published]
-  workflow_dispatch:
+    types: [created, published, edited]
 
 jobs:
-  linux:
-    name: Linux (x86_64)
+  build-linux:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v3
 
-      - name: Get CMake
-        uses: lukka/get-cmake@latest
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y libbluetooth-dev pkg-config cmake make g++
 
-      - name: Download and extract psmoveapi (Linux)
+      - name: Download psmoveapi
         run: |
-          mkdir -p "${INSTALL_DIR}"
-          curl -L -o psmoveapi.tar.gz "${{ env.PSMOVE_BASE_URL }}/psmoveapi-4.0.12-linux.tar.gz"
-          tar -xzf psmoveapi.tar.gz -C "${INSTALL_DIR}" --strip-components=1
-          echo "Contents of ${INSTALL_DIR}:"
-          ls -la "${INSTALL_DIR}"
-
-      - name: Configure & build (Linux)
-        run: |
-          mkdir -p build
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="${INSTALL_DIR}"
-          cmake --build build --config Release --parallel
-
-      - name: Package binary + libs (Linux)
-        run: |
-          BIN=$(find build -type f -iname 'dsu_server*' -executable -print -quit)
-          if [ -z "$BIN" ]; then echo "Binary not found in build/"; ls -R build || true; exit 1; fi
-          echo "Found binary: $BIN"
-          mkdir -p release_artifacts/run
-          cp "$BIN" release_artifacts/run/
-          # copy libpsmoveapi and any other .so files from INSTALL_DIR/lib
-          if [ -d "${INSTALL_DIR}/lib" ]; then
-            cp -v ${INSTALL_DIR}/lib/*.so* release_artifacts/run/ 2>/dev/null || true
-          fi
-          # Make packaged tar.gz
-          tar -C release_artifacts -czf release_artifacts/${{ env.ARTIFACT_PREFIX }}_linux_4.0.12.tar.gz run
-          ls -lh release_artifacts
-
-      - name: Upload to Release (Linux)
-        if: ${{ github.event_name == 'release' }}
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: release_artifacts/${{ env.ARTIFACT_PREFIX }}_linux_4.0.12.tar.gz
-          asset_name: ${{ env.ARTIFACT_PREFIX }}_linux_4.0.12.tar.gz
-          asset_content_type: application/gzip
-
-  macos:
-    name: macOS (x86_64/arm64)
-    runs-on: macos-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Get CMake
-        uses: lukka/get-cmake@latest
-
-      - name: Download and extract psmoveapi (macOS)
-        run: |
-          mkdir -p "${INSTALL_DIR}"
-          curl -L -o psmoveapi.tar.gz "${{ env.PSMOVE_BASE_URL }}/psmoveapi-4.0.12-macos.tar.gz"
-          tar -xzf psmoveapi.tar.gz -C "${INSTALL_DIR}" --strip-components=1
-          echo "Contents of ${INSTALL_DIR}:"
-          ls -la "${INSTALL_DIR}"
-
-      - name: Configure & build (macOS)
-        run: |
-          mkdir -p build
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="${INSTALL_DIR}"
-          cmake --build build --config Release --parallel
-
-      - name: Package binary + libs (macOS)
-        run: |
-          BIN=$(find build -type f -iname 'dsu_server*' -print -quit)
-          if [ -z "$BIN" ]; then echo "Binary not found"; ls -R build || true; exit 1; fi
-          echo "Found binary: $BIN"
-          mkdir -p release_artifacts/run
-          cp "$BIN" release_artifacts/run/
-          if [ -d "${INSTALL_DIR}/lib" ]; then
-            cp -v ${INSTALL_DIR}/lib/*.dylib release_artifacts/run/ 2>/dev/null || true
-          fi
-          tar -C release_artifacts -czf release_artifacts/${{ env.ARTIFACT_PREFIX }}_macos_4.0.12.tar.gz run
-          ls -lh release_artifacts
-
-      - name: Upload to Release (macOS)
-        if: ${{ github.event_name == 'release' }}
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: release_artifacts/${{ env.ARTIFACT_PREFIX }}_macos_4.0.12.tar.gz
-          asset_name: ${{ env.ARTIFACT_PREFIX }}_macos_4.0.12.tar.gz
-          asset_content_type: application/gzip
-
-  windows_msvc:
-    name: Windows (MSVC) - x64/x86
-    runs-on: windows-latest
-    strategy:
-      matrix:
-        arch: [x64, x86]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Download psmoveapi (Windows MSVC)
-        run: |
-          $arch = "${{ matrix.arch }}"
           mkdir -p psmoveapi_install
-          if ($arch -eq "x64") {
-            $url = "${{ env.PSMOVE_BASE_URL }}/psmoveapi-4.0.12-windows-msvc2017-x64.zip"
-          } else {
-            $url = "${{ env.PSMOVE_BASE_URL }}/psmoveapi-4.0.12-windows-msvc2017-x86.zip"
-          }
-          Write-Host "Downloading $url"
-          Invoke-WebRequest -Uri $url -OutFile psmoveapi.zip
-          Expand-Archive psmoveapi.zip -DestinationPath psmoveapi_install
-          Write-Host "Listing psmoveapi_install:"
-          Get-ChildItem psmoveapi_install -Recurse
+          curl -L https://github.com/thp/psmoveapi/releases/download/4.0.12/psmoveapi-4.0.12-linux.tar.gz -o psmoveapi.tar.gz
+          tar -xzf psmoveapi.tar.gz -C psmoveapi_install --strip-components=1
 
-      - name: Configure (MSVC)
-        shell: pwsh
+      - name: Build
         run: |
-          $arch = "${{ matrix.arch }}"
-          if ($arch -eq "x64") {
-            cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="${{ github.workspace }}\psmoveapi_install"
-          } else {
-            cmake -S . -B build -G "Visual Studio 17 2022" -A Win32 -DCMAKE_PREFIX_PATH="${{ github.workspace }}\psmoveapi_install"
-          }
+          cmake -S . -B build -DPSMOVE_ROOT=$PWD/psmoveapi_install
+          cmake --build build --config Release
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v1
+        with:
+          files: build/dsu_server_psmove
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-macos:
+    runs-on: macos-13 # Intel runner to match x86_64 binaries
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: brew install cmake pkg-config
+
+      - name: Download psmoveapi
+        run: |
+          mkdir -p psmoveapi_install
+          curl -L https://github.com/thp/psmoveapi/releases/download/4.0.12/psmoveapi-4.0.12-macos.tar.gz -o psmoveapi.tar.gz
+          tar -xzf psmoveapi.tar.gz -C psmoveapi_install --strip-components=1
+
+      - name: Build
+        run: |
+          cmake -S . -B build -DPSMOVE_ROOT=$PWD/psmoveapi_install
+          cmake --build build --config Release
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v1
+        with:
+          files: build/dsu_server_psmove
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-windows-msvc:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Download psmoveapi
+        run: |
+          mkdir psmoveapi_install
+          curl -L https://github.com/thp/psmoveapi/releases/download/4.0.12/psmoveapi-4.0.12-windows-msvc2017-x64.zip -o psmoveapi.zip
+          tar -xf psmoveapi.zip -C psmoveapi_install --strip-components=1
 
       - name: Build (MSVC)
-        shell: pwsh
-        run: cmake --build build --config Release
-
-      - name: Package binary + DLLs (MSVC)
-        shell: pwsh
         run: |
-          $exe = Get-ChildItem -Path build -Recurse -Filter "dsu_server*.exe" -File | Select-Object -First 1
-          if (-not $exe) { Write-Error "Built exe not found"; exit 1 }
-          Write-Host "Found $($exe.FullName)"
-          $outdir = "release_artifacts\run"
-          New-Item -ItemType Directory -Path $outdir -Force | Out-Null
-          Copy-Item -Path $exe.FullName -Destination $outdir
-          # copy DLLs from extracted psmoveapi lib or bin directories (if present)
-          $possible = @("psmoveapi_install\lib\*.dll","psmoveapi_install\bin\*.dll","psmoveapi_install\bin\Release\*.dll")
-          foreach ($pat in $possible) {
-            Get-ChildItem -Path $pat -ErrorAction SilentlyContinue | ForEach-Object { Copy-Item $_.FullName -Destination $outdir -Force }
-          }
-          $zip = "release_artifacts\${{ env.ARTIFACT_PREFIX }}_windows_msvc_${{ matrix.arch }}_4.0.12.zip"
-          if (Test-Path $zip) { Remove-Item $zip -Force }
-          Compress-Archive -Path $outdir\* -DestinationPath $zip -Force
-          Write-Host "Packaged $zip"
+          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DPSMOVE_ROOT=%cd%/psmoveapi_install
+          cmake --build build --config Release
 
-      - name: Upload to Release (MSVC)
-        if: ${{ github.event_name == 'release' }}
-        uses: actions/upload-release-asset@v1
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v1
+        with:
+          files: build/Release/dsu_server_psmove.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: release_artifacts/${{ env.ARTIFACT_PREFIX }}_windows_msvc_${{ matrix.arch }}_4.0.12.zip
-          asset_name: ${{ env.ARTIFACT_PREFIX }}_windows_msvc_${{ matrix.arch }}_4.0.12.zip
-          asset_content_type: application/zip
 
-  windows_mingw:
-    name: Windows (MinGW) - mingw64/mingw32
+  build-windows-mingw:
     runs-on: windows-latest
-    strategy:
-      matrix:
-        arch: [mingw64, mingw32]
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v3
 
-      - name: Set up MSYS2
-        uses: msys2/setup-msys2@v2
+      - name: Install unzip
+        run: choco install unzip -y
+
+      - name: Download psmoveapi
+        run: |
+          mkdir psmoveapi_install
+          curl -L https://github.com/thp/psmoveapi/releases/download/4.0.12/psmoveapi-4.0.12-mingw64.zip -o psmoveapi.zip
+          unzip psmoveapi.zip -d psmoveapi_install
+
+      - name: Build (MinGW)
+        run: |
+          cmake -S . -B build -G "MinGW Makefiles" -DPSMOVE_ROOT=%cd%/psmoveapi_install
+          cmake --build build --config Release
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v1
         with:
-          update: true
-          msystem: MINGW64
-
-      - name: Download psmoveapi (MinGW) and extract
-        shell: msys2 {0}
-        run: |
-          arch="${{ matrix.arch }}"
-          mkdir -p /c/Users/RunnerAdmin/workspace/psmoveapi_install
-          if [ "$arch" = "mingw64" ]; then
-            url="${{ env.PSMOVE_BASE_URL }}/psmoveapi-4.0.12-mingw64.zip"
-          else
-            url="${{ env.PSMOVE_BASE_URL }}/psmoveapi-4.0.12-mingw32.zip"
-          fi
-          echo "Downloading $url"
-          curl -L -o psmoveapi.zip "$url"
-          unzip -o psmoveapi.zip -d psmoveapi_install
-          ls -la psmoveapi_install
-
-      - name: Install MSYS2 toolchain (MinGW)
-        shell: msys2 {0}
-        run: |
-          pacman -Syu --noconfirm
-          pacman -S --noconfirm --needed mingw-w64-x86_64-toolchain mingw-w64-i686-toolchain mingw-w64-x86_64-cmake mingw-w64-i686-cmake
-
-      - name: Configure & build (MinGW)
-        shell: msys2 {0}
-        run: |
-          arch="${{ matrix.arch }}"
-          # Use MSYS Makefiles and CMAKE_PREFIX_PATH pointing to the extracted psmoveapi
-          mkdir -p build && cd build
-          cmake -G "MSYS Makefiles" -DCMAKE_PREFIX_PATH="../psmoveapi_install" ..
-          cmake --build . --parallel
-
-      - name: Package binary + DLLs (MinGW)
-        shell: msys2 {0}
-        run: |
-          exe=$(find build -type f -iname 'dsu_server*.exe' | head -n1)
-          if [ -z "$exe" ]; then echo "Built exe not found"; ls -R build || true; exit 1; fi
-          mkdir -p release_artifacts/run
-          cp "$exe" release_artifacts/run/
-          # copy DLLs from psmoveapi_install lib or bin if present
-          cp -v psmoveapi_install/lib/*.dll release_artifacts/run/ 2>/dev/null || true
-          cp -v psmoveapi_install/bin/*.dll release_artifacts/run/ 2>/dev/null || true
-          zip -j release_artifacts/${{ env.ARTIFACT_PREFIX }}_windows_mingw_${{ matrix.arch }}_4.0.12.zip release_artifacts/run/*
-
-      - name: Upload to Release (MinGW)
-        if: ${{ github.event_name == 'release' }}
-        uses: actions/upload-release-asset@v1
+          files: build/dsu_server_psmove.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: release_artifacts/${{ env.ARTIFACT_PREFIX }}_windows_mingw_${{ matrix.arch }}_4.0.12.zip
-          asset_name: ${{ env.ARTIFACT_PREFIX }}_windows_mingw_${{ matrix.arch }}_4.0.12.zip
-          asset_content_type: application/zip
