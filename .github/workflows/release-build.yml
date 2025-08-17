@@ -13,10 +13,13 @@ jobs:
         include:
           - os: ubuntu-latest
             asset: psmoveapi-4.0.12-linux.tar.gz
+            executable: dsu_server_psmove
           - os: macos-13
             asset: psmoveapi-4.0.12-macos.tar.gz
+            executable: dsu_server_psmove
           - os: windows-latest
             asset: psmoveapi-4.0.12-windows-msvc2017-x64.zip
+            executable: dsu_server_psmove.exe
 
     steps:
       - uses: actions/checkout@v4
@@ -63,13 +66,50 @@ jobs:
           tar -xf psmoveapi.${{ matrix.asset }} -C psmoveapi_install --strip-components=1
 
       - name: Configure with CMake
-        run: cmake -S . -B build -DPSMOVE_ROOT=${{ github.workspace }}/psmoveapi_install
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DPSMOVE_ROOT=${{ github.workspace }}/psmoveapi_install
 
       - name: Build
         run: cmake --build build --config Release
 
-      - name: Upload binaries to release
+      - name: Create artifact name
+        id: artifact
+        run: |
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            echo "name=dsu_server_psmove-windows-x64.exe" >> $GITHUB_OUTPUT
+            echo "path=build/Release/${{ matrix.executable }}" >> $GITHUB_OUTPUT
+          elif [ "${{ runner.os }}" = "macOS" ]; then
+            echo "name=dsu_server_psmove-macos" >> $GITHUB_OUTPUT
+            echo "path=build/${{ matrix.executable }}" >> $GITHUB_OUTPUT
+          else
+            echo "name=dsu_server_psmove-linux" >> $GITHUB_OUTPUT
+            echo "path=build/${{ matrix.executable }}" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+
+      - name: Rename executable
+        run: |
+          mkdir -p artifacts
+          cp "${{ steps.artifact.outputs.path }}" "artifacts/${{ steps.artifact.outputs.name }}"
+        shell: bash
+
+      - name: Upload to release (on release event)
+        if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: build/Release/* 
+          files: artifacts/${{ steps.artifact.outputs.name }}
+
+      - name: Get latest release (on workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        id: latest_release
+        run: |
+          LATEST_RELEASE=$(curl -s https://api.github.com/repos/${{ github.repository }}/releases/latest | jq -r .id)
+          echo "release_id=$LATEST_RELEASE" >> $GITHUB_OUTPUT
+
+      - name: Upload to latest release (on workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          curl -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Content-Type: application/octet-stream" \
+            --data-binary @"artifacts/${{ steps.artifact.outputs.name }}" \
+            "https://uploads.github.com/repos/${{ github.repository }}/releases/${{ steps.latest_release.outputs.release_id }}/assets?name=${{ steps.artifact.outputs.name }}"
