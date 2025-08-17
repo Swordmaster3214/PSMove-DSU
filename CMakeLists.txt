@@ -18,6 +18,15 @@ link_directories(${PSMOVE_ROOT}/lib)
 # Our source
 add_executable(dsu_server_psmove dsu_server_psmove.cpp)
 
+# Platform-specific binary naming
+if(WIN32)
+    set_target_properties(dsu_server_psmove PROPERTIES OUTPUT_NAME "dsu_server_psmove-windows")
+elseif(APPLE)
+    set_target_properties(dsu_server_psmove PROPERTIES OUTPUT_NAME "dsu_server_psmove-macos")
+elseif(UNIX AND NOT APPLE)
+    set_target_properties(dsu_server_psmove PROPERTIES OUTPUT_NAME "dsu_server_psmove-linux")
+endif()
+
 # Platform-specific libraries
 if(WIN32)
     message(STATUS "Configuring for Windows")
