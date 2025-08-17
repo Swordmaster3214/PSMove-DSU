@@ -28,7 +28,7 @@ typedef int socklen_t;
 #include <unistd.h>
 #endif
 
-#include <psmoveapi/psmove.h>
+#include <psmove.h>
 
 #include <atomic>
 #include <chrono>
