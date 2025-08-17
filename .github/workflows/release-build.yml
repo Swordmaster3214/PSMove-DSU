@@ -1,10 +1,4 @@
 name: Release build (use psmoveapi prebuilt binaries)
-
-on:
-  release:
-    types: [created, published]
-  workflow_dispatch:
-
 env:
   # Set the psmoveapi version tag you want to use (recommend pinning)
   PSMOVE_VERSION: "4.0.12"
@@ -13,6 +7,10 @@ env:
   INSTALL_DIR: "${{ github.workspace }}/psmoveapi_install"
   # Name prefix for produced artifacts
   ARTIFACT_PREFIX: "dsu_server"
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
 
 jobs:
   linux:
