@@ -65,31 +65,61 @@ jobs:
           mkdir -p psmoveapi_install
           tar -xf psmoveapi.${{ matrix.asset }} -C psmoveapi_install --strip-components=1
 
-      - name: Configure with CMake
+      - name: Configure with CMake (Windows)
+        if: runner.os == 'Windows'
+        run: cmake -S . -B build -DPSMOVE_ROOT=${{ github.workspace }}/psmoveapi_install
+
+      - name: Configure with CMake (Linux/macOS)
+        if: runner.os != 'Windows'
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DPSMOVE_ROOT=${{ github.workspace }}/psmoveapi_install
 
       - name: Build
         run: cmake --build build --config Release
 
-      - name: Create artifact name
-        id: artifact
+      - name: List build directory contents (debug)
         run: |
+          echo "Contents of build directory:"
+          ls -la build/
           if [ "${{ runner.os }}" = "Windows" ]; then
-            echo "name=dsu_server_psmove-windows-x64.exe" >> $GITHUB_OUTPUT
-            echo "path=build/Release/${{ matrix.executable }}" >> $GITHUB_OUTPUT
-          elif [ "${{ runner.os }}" = "macOS" ]; then
-            echo "name=dsu_server_psmove-macos" >> $GITHUB_OUTPUT
-            echo "path=build/${{ matrix.executable }}" >> $GITHUB_OUTPUT
-          else
-            echo "name=dsu_server_psmove-linux" >> $GITHUB_OUTPUT
-            echo "path=build/${{ matrix.executable }}" >> $GITHUB_OUTPUT
+            echo "Contents of build/Release directory:"
+            ls -la build/Release/ || echo "build/Release/ does not exist"
+            echo "Contents of build/Debug directory:"
+            ls -la build/Debug/ || echo "build/Debug/ does not exist"
           fi
         shell: bash
 
-      - name: Rename executable
+      - name: Find and rename executable
+        id: artifact
         run: |
           mkdir -p artifacts
-          cp "${{ steps.artifact.outputs.path }}" "artifacts/${{ steps.artifact.outputs.name }}"
+          
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            # Try multiple possible locations for Windows executable
+            if [ -f "build/Release/${{ matrix.executable }}" ]; then
+              EXEC_PATH="build/Release/${{ matrix.executable }}"
+            elif [ -f "build/Debug/${{ matrix.executable }}" ]; then
+              EXEC_PATH="build/Debug/${{ matrix.executable }}"
+            elif [ -f "build/${{ matrix.executable }}" ]; then
+              EXEC_PATH="build/${{ matrix.executable }}"
+            else
+              echo "ERROR: Could not find Windows executable"
+              exit 1
+            fi
+            ARTIFACT_NAME="dsu_server_psmove-windows-x64.exe"
+          elif [ "${{ runner.os }}" = "macOS" ]; then
+            EXEC_PATH="build/${{ matrix.executable }}"
+            ARTIFACT_NAME="dsu_server_psmove-macos"
+          else
+            EXEC_PATH="build/${{ matrix.executable }}"
+            ARTIFACT_NAME="dsu_server_psmove-linux"
+          fi
+          
+          echo "name=$ARTIFACT_NAME" >> $GITHUB_OUTPUT
+          echo "path=$EXEC_PATH" >> $GITHUB_OUTPUT
+          
+          # Copy to artifacts directory
+          cp "$EXEC_PATH" "artifacts/$ARTIFACT_NAME"
+          echo "Successfully created: artifacts/$ARTIFACT_NAME"
         shell: bash
 
       - name: Upload to release (on release event)
@@ -97,19 +127,23 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: artifacts/${{ steps.artifact.outputs.name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Get latest release (on workflow_dispatch)
         if: github.event_name == 'workflow_dispatch'
         id: latest_release
         run: |
-          LATEST_RELEASE=$(curl -s https://api.github.com/repos/${{ github.repository }}/releases/latest | jq -r .id)
+          LATEST_RELEASE=$(gh api repos/${{ github.repository }}/releases/latest --jq '.id')
           echo "release_id=$LATEST_RELEASE" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload to latest release (on workflow_dispatch)
         if: github.event_name == 'workflow_dispatch'
         run: |
-          curl -X POST \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Content-Type: application/octet-stream" \
-            --data-binary @"artifacts/${{ steps.artifact.outputs.name }}" \
-            "https://uploads.github.com/repos/${{ github.repository }}/releases/${{ steps.latest_release.outputs.release_id }}/assets?name=${{ steps.artifact.outputs.name }}"
+          gh release upload ${{ steps.latest_release.outputs.release_id }} \
+            "artifacts/${{ steps.artifact.outputs.name }}" \
+            --repo ${{ github.repository }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
