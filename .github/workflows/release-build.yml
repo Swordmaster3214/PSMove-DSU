@@ -1,6 +1,6 @@
 name: Release build (psmoveapi submodule)
 
-# Trigger on Release published (only build when you publish a release)
+# Trigger on Release published and allow manual runs
 on:
   release:
     types: [published]
@@ -8,6 +8,7 @@ on:
 
 env:
   BUILD_TYPE: Release
+  # install prefix (relative to workspace)
   PSMOVE_INSTALL_DIR: ${{ github.workspace }}/build/psmove_install
 
 jobs:
@@ -20,28 +21,42 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Ensure submodules are initialized
+        run: git submodule update --init --recursive
+
       - name: Install build deps (apt)
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake git pkg-config ccache libusb-1.0-0-dev libbluetooth-dev libudev-dev
-
       - name: Get CMake
         uses: lukka/get-cmake@latest
 
       - name: Build & install psmoveapi (submodule)
         run: |
+          set -e
           mkdir -p build/psmove_src_build
+          mkdir -p ${PSMOVE_INSTALL_DIR}
           cd build/psmove_src_build
-          cmake ../../third_party/psmoveapi -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DCMAKE_INSTALL_PREFIX=${PSMOVE_INSTALL_DIR} -DBUILD_EXAMPLES=OFF -DBUILD_TESTS=OFF
+          cmake ../../third_party/psmoveapi \
+            -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+            -DCMAKE_INSTALL_PREFIX=${PSMOVE_INSTALL_DIR} \
+            -DBUILD_EXAMPLES=OFF -DBUILD_TESTS=OFF
           cmake --build . --parallel
           cmake --install . --prefix ${PSMOVE_INSTALL_DIR}
-        shell: bash
+          cd ../../
+          echo "Installed psmoveapi to ${PSMOVE_INSTALL_DIR}"
+          ls -la ${PSMOVE_INSTALL_DIR}
+          ls -la ${PSMOVE_INSTALL_DIR}/lib/pkgconfig || true
+          pkg-config --modversion psmoveapi || true
 
       - name: Configure & build DSU server
+        env:
+          PKG_CONFIG_PATH: ${{ github.workspace }}/build/psmove_install/lib/pkgconfig:${PKG_CONFIG_PATH}
+          CMAKE_PREFIX_PATH: ${{ github.workspace }}/build/psmove_install:${CMAKE_PREFIX_PATH}
         run: |
           mkdir -p build/dsu
           cd build/dsu
-          cmake ../.. -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DCMAKE_PREFIX_PATH=${PSMOVE_INSTALL_DIR}
+          cmake ../.. -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}
           cmake --build . --parallel
         shell: bash
 
@@ -52,7 +67,6 @@ jobs:
           if [ ! -f "$BIN" ]; then echo "Binary not found: $BIN"; exit 1; fi
           tar -czf release_artifacts/dsu_server_psmove-linux.tar.gz -C build/dsu $(basename $BIN)
           ls -lh release_artifacts
-        shell: bash
 
       - name: Upload linux asset to Release
         uses: actions/upload-release-asset@v1
@@ -73,6 +87,9 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Ensure submodules are initialized
+        run: git submodule update --init --recursive
+
       - name: Install Homebrew deps
         run: |
           brew update
@@ -82,18 +99,31 @@ jobs:
 
       - name: Build & install psmoveapi (submodule)
         run: |
+          set -e
           mkdir -p build/psmove_src_build
+          mkdir -p ${PSMOVE_INSTALL_DIR}
           cd build/psmove_src_build
-          cmake ../../third_party/psmoveapi -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DCMAKE_INSTALL_PREFIX=${PSMOVE_INSTALL_DIR} -DBUILD_EXAMPLES=OFF -DBUILD_TESTS=OFF
+          cmake ../../third_party/psmoveapi \
+            -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+            -DCMAKE_INSTALL_PREFIX=${PSMOVE_INSTALL_DIR} \
+            -DBUILD_EXAMPLES=OFF -DBUILD_TESTS=OFF
           cmake --build . --parallel
           cmake --install . --prefix ${PSMOVE_INSTALL_DIR}
+          cd ../../
+          echo "Installed psmoveapi to ${PSMOVE_INSTALL_DIR}"
+          ls -la ${PSMOVE_INSTALL_DIR}
+          ls -la ${PSMOVE_INSTALL_DIR}/lib/pkgconfig || true
+          pkg-config --modversion psmoveapi || true
         shell: bash
 
       - name: Configure & build DSU server
+        env:
+          PKG_CONFIG_PATH: ${{ github.workspace }}/build/psmove_install/lib/pkgconfig:${PKG_CONFIG_PATH}
+          CMAKE_PREFIX_PATH: ${{ github.workspace }}/build/psmove_install:${CMAKE_PREFIX_PATH}
         run: |
           mkdir -p build/dsu
           cd build/dsu
-          cmake ../.. -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DCMAKE_PREFIX_PATH=${PSMOVE_INSTALL_DIR}
+          cmake ../.. -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}
           cmake --build . --parallel
         shell: bash
 
@@ -131,44 +161,56 @@ jobs:
           update: true
           msystem: MINGW64
 
+      - name: Ensure submodules are initialized (MSYS2)
+        shell: msys2 {0}
+        run: git submodule update --init --recursive
+
       - name: Install MSYS2 packages
         shell: msys2 {0}
         run: |
           pacman -Syu --noconfirm
-          pacman -S --noconfirm --needed mingw-w64-x86_64-toolchain mingw-w64-x86_64-cmake mingw-w64-x86_64-pkg-config mingw-w64-x86_64-libusb
-
+          pacman -S --noconfirm --needed mingw-w64-x86_64-toolchain mingw-w64-x86_64-cmake mingw-w64-x86_64-pkg-config mingw-w64-x86_64-libusb mingw-w64-x86_64-libuuid
       - name: Build & install psmoveapi (MSYS2)
         shell: msys2 {0}
         run: |
+          set -e
           mkdir -p /c/Users/RunnerAdmin/workspace/build/psmove_src_build
+          mkdir -p /c/Users/RunnerAdmin/workspace/build/psmove_install
           cd /c/Users/RunnerAdmin/workspace/build/psmove_src_build
-          cmake /c/Users/RunnerAdmin/workspace/third_party/psmoveapi -G "MSYS Makefiles" -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DCMAKE_INSTALL_PREFIX=/c/Users/RunnerAdmin/workspace/build/psmove_install -DBUILD_EXAMPLES=OFF -DBUILD_TESTS=OFF
+          cmake /c/Users/RunnerAdmin/workspace/third_party/psmoveapi -G "MSYS Makefiles" \
+            -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+            -DCMAKE_INSTALL_PREFIX=/c/Users/RunnerAdmin/workspace/build/psmove_install \
+            -DBUILD_EXAMPLES=OFF -DBUILD_TESTS=OFF
           cmake --build . --parallel
           cmake --install . --prefix /c/Users/RunnerAdmin/workspace/build/psmove_install
+          cd /c/Users/RunnerAdmin/workspace
+          ls -la /c/Users/RunnerAdmin/workspace/build/psmove_install || true
+          ls -la /c/Users/RunnerAdmin/workspace/build/psmove_install/lib/pkgconfig || true
 
       - name: Configure & build DSU server (MSYS2)
         shell: msys2 {0}
         run: |
           mkdir -p /c/Users/RunnerAdmin/workspace/build/dsu
           cd /c/Users/RunnerAdmin/workspace/build/dsu
-          cmake /c/Users/RunnerAdmin/workspace -G "MSYS Makefiles" -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DCMAKE_PREFIX_PATH=/c/Users/RunnerAdmin/workspace/build/psmove_install
+          cmake /c/Users/RunnerAdmin/workspace -G "MSYS Makefiles" \
+            -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+            -DCMAKE_PREFIX_PATH=/c/Users/RunnerAdmin/workspace/build/psmove_install
           cmake --build . --parallel
 
-      - name: Package windows binary
+      - name: Package windows binary (MSYS2)
         shell: msys2 {0}
         run: |
-          mkdir -p release_artifacts
+          mkdir -p /c/Users/RunnerAdmin/workspace/release_artifacts
           BIN=/c/Users/RunnerAdmin/workspace/build/dsu/dsu_server_psmove.exe
           if [ ! -f "$BIN" ]; then echo "Binary not found: $BIN"; exit 1; fi
-          zip -j release_artifacts/dsu_server_psmove-windows.zip $BIN
-          ls -lh release_artifacts
-
+          zip -j /c/Users/RunnerAdmin/workspace/release_artifacts/dsu_server_psmove-windows.zip $BIN
+          ls -la /c/Users/RunnerAdmin/workspace/release_artifacts
       - name: Upload windows asset to Release
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: build/dsu/release_artifacts/dsu_server_psmove-windows.zip
+          asset_path: /c/Users/RunnerAdmin/workspace/release_artifacts/dsu_server_psmove-windows.zip
           asset_name: dsu_server_psmove-windows.zip
           asset_content_type: application/zip
