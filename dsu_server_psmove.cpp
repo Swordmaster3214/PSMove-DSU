@@ -3,16 +3,6 @@
 // - Tries BT connect first; if none found, attempts pairing via USB using psmove_pair().
 // - Reduced runtime logging by default; use --verbose to enable more output.
 // - Keeps analog face-button writes, trigger mapping, battery reading.
-//
-// Build examples:
-// Linux/macOS (pkg-config):
-//   g++ -O2 -std=c++17 dsu_server_psmove.cpp -o dsu_server_psmove -pthread $(pkg-config --cflags --libs libpsmoveapi)
-// Linux fallback:
-//   g++ -O2 -std=c++17 dsu_server_psmove.cpp -o dsu_server_psmove -pthread -I/usr/include/psmoveapi -lpsmoveapi
-// Windows (MinGW):
-//   g++ -O2 -std=c++17 dsu_server_psmove.cpp -o dsu_server_psmove.exe -lpsmoveapi -lws2_32 -pthread
-// Windows (MSVC):
-//   cl /O2 /std:c++17 dsu_server_psmove.cpp psmoveapi.lib ws2_32.lib
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
