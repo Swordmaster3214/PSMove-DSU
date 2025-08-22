@@ -105,10 +105,20 @@ jobs:
               exit 1
             fi
           else
-            # For Linux/macOS, find the executable (non-.exe files that are executable)
-            EXEC_NAME=$(find build/ -maxdepth 1 -type f -executable ! -name "*.so" ! -name "*.dylib" -printf '%f\n' | head -n1)
+            # For Linux/macOS, find the executable using portable commands
+            # Look for files that are executable and not libraries
+            EXEC_NAME=""
+            for file in build/*; do
+              if [ -f "$file" ] && [ -x "$file" ] && [[ ! "$file" =~ \.(so|dylib)$ ]]; then
+                EXEC_NAME=$(basename "$file")
+                break
+              fi
+            done
+            
             if [ -z "$EXEC_NAME" ]; then
               echo "ERROR: Could not find executable"
+              echo "Available files in build/:"
+              ls -la build/
               exit 1
             fi
           fi
@@ -116,7 +126,7 @@ jobs:
           echo "Found executable: $EXEC_NAME"
         shell: bash
 
-      - name: Find and rename executable
+      - name: Find executable
         id: artifact
         run: |
           mkdir -p artifacts
