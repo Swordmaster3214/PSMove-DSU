@@ -143,6 +143,8 @@ int PSMovePairing::run_pairing_mode() {
     std::cout << "=== Pairing Complete ===\n";
     std::cout << "The pairing data has been written to your controller.\n";
     std::cout << "Please restart your computer, then run the DSU server normally to use your paired controller.\n";
+
+    wait_for_keypress();
     
     return 0;
 }
