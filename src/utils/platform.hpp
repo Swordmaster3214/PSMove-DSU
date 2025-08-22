@@ -15,17 +15,10 @@ typedef int socklen_t;
 #define CLOSE_SOCKET close
 #endif
 
-// PSMoveAPI compatibility
+// PSMoveAPI compatibility - only define what's not in the main headers
 #ifndef PSMOVE_BTADDR_SIZE
 #define PSMOVE_BTADDR_SIZE 6
 typedef struct {
     unsigned char data[PSMOVE_BTADDR_SIZE];
 } PSMove_Data_BTAddr;
 #endif
-
-// Forward declarations for PSMoveAPI functions
-extern "C" {
-    int psmove_get_btaddr_string(char *btaddr_string);
-    int psmove_btaddr_from_string(const char *btaddr_string, PSMove_Data_BTAddr *btaddr);
-    int psmove_pair_custom(PSMove *move, const PSMove_Data_BTAddr *btaddr);
-}
