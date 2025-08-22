@@ -1,4 +1,4 @@
-name: Linux Build and Upload
+name: Linux Test Build
 
 on:
   workflow_dispatch:
