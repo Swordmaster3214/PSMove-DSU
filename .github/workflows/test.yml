@@ -1,0 +1,78 @@
+name: Linux Build and Upload
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libusb-1.0-0-dev libbluetooth-dev pkg-config
+
+      - name: Download psmoveapi
+        run: |
+          curl -L -o psmoveapi.psmoveapi-4.0.12-linux.tar.gz \
+            https://github.com/thp/psmoveapi/releases/download/4.0.12/psmoveapi-4.0.12-linux.tar.gz
+
+      - name: Extract psmoveapi
+        run: |
+          mkdir -p psmoveapi_install
+          tar -xzf psmoveapi.psmoveapi-4.0.12-linux.tar.gz -C psmoveapi_install --strip-components=1
+
+      - name: Configure with CMake
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DPSMOVE_ROOT=${{ github.workspace }}/psmoveapi_install
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: List build directory contents (debug)
+        run: |
+          echo "Contents of build directory:"
+          ls -la build/
+
+      - name: Check for specific executable
+        run: |
+          if [ -f "build/dsu_server_psmove_linux_x64" ]; then
+            echo "Found dsu_server_psmove_linux_x64"
+            ls -la build/dsu_server_psmove_linux_x64
+          else
+            echo "dsu_server_psmove_linux_x64 not found, listing all executables:"
+            find build/ -type f -executable ! -name "*.so" ! -name "*.dylib"
+          fi
+
+      - name: Upload executable to repository
+        run: |
+          # Configure git
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          # Check if the executable exists
+          if [ ! -f "build/dsu_server_psmove_linux_x64" ]; then
+            echo "ERROR: build/dsu_server_psmove_linux_x64 not found"
+            exit 1
+          fi
+          
+          # Copy the executable to the root of the repository
+          cp build/dsu_server_psmove_linux_x64 ./dsu_server_psmove_linux_x64
+          
+          # Add and commit the file
+          git add dsu_server_psmove_linux_x64
+          
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit - executable is already up to date"
+          else
+            git commit -m "Update Linux x64 executable from workflow run"
+            git push
+            echo "Successfully uploaded dsu_server_psmove_linux_x64 to repository"
+          fi
