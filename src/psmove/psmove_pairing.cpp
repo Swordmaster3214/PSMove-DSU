@@ -125,27 +125,24 @@ int PSMovePairing::run_pairing_mode() {
     
     // Get system Bluetooth address
     char btaddr_str[18];
-    if (psmove_get_btaddr_string(btaddr_str) == 0) {
-        Logger::error("Could not get system Bluetooth address. Make sure you have a working Bluetooth adapter.");
+    // The psmove_get_btaddr function gets the controller's address, not the system's
+    // We need the system Bluetooth adapter address for pairing
+    // Try a fallback approach or see if there's another function
+    if (psmove_get_btaddr(usb_controller, btaddr_str) == 0) {
+        Logger::error("Could not get Bluetooth address. Make sure you have a working Bluetooth adapter.");
         psmove_disconnect(usb_controller);
         return 1;
     }
     
     std::cout << "   System Bluetooth address: " << btaddr_str << "\n";
     
-    // Try pairing
+    // Try pairing - use the standard psmove_pair function
     int pair_result = psmove_pair(usb_controller);
     if (pair_result != 1) {
         std::cout << "Regular pairing failed, trying custom pairing...\n";
         
-        PSMove_Data_BTAddr btaddr;
-        if (psmove_btaddr_from_string(btaddr_str, &btaddr) == 0) {
-            Logger::error("Could not parse Bluetooth address.");
-            psmove_disconnect(usb_controller);
-            return 1;
-        }
-        
-        pair_result = psmove_pair_custom(usb_controller, &btaddr);
+        // Try custom pairing with host string (this matches the actual API)
+        pair_result = psmove_pair_custom(usb_controller, btaddr_str);
         
         if (pair_result != 1) {
             Logger::error("All pairing attempts failed. This could indicate USB communication issue, controller malfunction, or Bluetooth adapter not working properly.");
