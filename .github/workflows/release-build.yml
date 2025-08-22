@@ -17,13 +17,10 @@ jobs:
         include:
           - os: ubuntu-latest
             asset: psmoveapi-4.0.12-linux.tar.gz
-            executable: dsu_server_psmove
           - os: macos-13
             asset: psmoveapi-4.0.12-macos.tar.gz
-            executable: dsu_server_psmove
           - os: windows-latest
             asset: psmoveapi-4.0.12-windows-msvc2017-x64.zip
-            executable: dsu_server_psmove.exe
 
     steps:
       - uses: actions/checkout@v4
@@ -92,30 +89,58 @@ jobs:
           fi
         shell: bash
 
-      - name: Find and rename executable
-        id: artifact
+      - name: Get executable name from CMake
+        id: cmake_info
         run: |
-          mkdir -p artifacts
-          
           if [ "${{ runner.os }}" = "Windows" ]; then
-            # Try multiple possible locations for Windows executable
-            if [ -f "build/Release/${{ matrix.executable }}" ]; then
-              EXEC_PATH="build/Release/${{ matrix.executable }}"
-            elif [ -f "build/Debug/${{ matrix.executable }}" ]; then
-              EXEC_PATH="build/Debug/${{ matrix.executable }}"
-            elif [ -f "build/${{ matrix.executable }}" ]; then
-              EXEC_PATH="build/${{ matrix.executable }}"
+            # For Windows, we need to find the actual executable name
+            if [ -f "build/Release/"*.exe ]; then
+              EXEC_NAME=$(basename build/Release/*.exe)
+            elif [ -f "build/Debug/"*.exe ]; then
+              EXEC_NAME=$(basename build/Debug/*.exe)
+            elif [ -f "build/"*.exe ]; then
+              EXEC_NAME=$(basename build/*.exe)
             else
               echo "ERROR: Could not find Windows executable"
               exit 1
             fi
-            ARTIFACT_NAME="dsu_server_psmove-windows-x64.exe"
-          elif [ "${{ runner.os }}" = "macOS" ]; then
-            EXEC_PATH="build/${{ matrix.executable }}"
-            ARTIFACT_NAME="dsu_server_psmove-macos"
           else
-            EXEC_PATH="build/${{ matrix.executable }}"
-            ARTIFACT_NAME="dsu_server_psmove-linux"
+            # For Linux/macOS, find the executable (non-.exe files that are executable)
+            EXEC_NAME=$(find build/ -maxdepth 1 -type f -executable ! -name "*.so" ! -name "*.dylib" -printf '%f\n' | head -n1)
+            if [ -z "$EXEC_NAME" ]; then
+              echo "ERROR: Could not find executable"
+              exit 1
+            fi
+          fi
+          echo "executable_name=$EXEC_NAME" >> $GITHUB_OUTPUT
+          echo "Found executable: $EXEC_NAME"
+        shell: bash
+
+      - name: Find and rename executable
+        id: artifact
+        run: |
+          mkdir -p artifacts
+          EXEC_NAME="${{ steps.cmake_info.outputs.executable_name }}"
+          
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            # Try multiple possible locations for Windows executable
+            if [ -f "build/Release/$EXEC_NAME" ]; then
+              EXEC_PATH="build/Release/$EXEC_NAME"
+            elif [ -f "build/Debug/$EXEC_NAME" ]; then
+              EXEC_PATH="build/Debug/$EXEC_NAME"
+            elif [ -f "build/$EXEC_NAME" ]; then
+              EXEC_PATH="build/$EXEC_NAME"
+            else
+              echo "ERROR: Could not find Windows executable $EXEC_NAME"
+              exit 1
+            fi
+            ARTIFACT_NAME="${EXEC_NAME%.exe}-windows-x64.exe"
+          elif [ "${{ runner.os }}" = "macOS" ]; then
+            EXEC_PATH="build/$EXEC_NAME"
+            ARTIFACT_NAME="$EXEC_NAME-macos"
+          else
+            EXEC_PATH="build/$EXEC_NAME"
+            ARTIFACT_NAME="$EXEC_NAME-linux"
           fi
           
           echo "name=$ARTIFACT_NAME" >> $GITHUB_OUTPUT
