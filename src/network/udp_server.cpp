@@ -1,0 +1,106 @@
+#include "network/udp_server.hpp"
+#include "utils/logging.hpp"
+#include <thread>
+
+UDPServer::UDPServer(int port) : port_(port), sock_(-1), running_(false) {
+#ifdef _WIN32
+    WSADATA wsaData;
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+        Logger::error("WSAStartup failed");
+    }
+#endif
+}
+
+UDPServer::~UDPServer() {
+    stop();
+#ifdef _WIN32
+    WSACleanup();
+#endif
+}
+
+bool UDPServer::start() {
+    if (running_.load()) return true;
+    
+#ifdef _WIN32
+    sock_ = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (sock_ == INVALID_SOCKET) {
+        Logger::error("socket() failed: " + std::to_string(WSAGetLastError()));
+        return false;
+    }
+#else
+    sock_ = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (sock_ < 0) {
+        Logger::error("socket() failed");
+        return false;
+    }
+#endif
+    
+    sockaddr_in bind_addr{};
+    bind_addr.sin_family = AF_INET;
+    bind_addr.sin_port = htons(port_);
+    bind_addr.sin_addr.s_addr = INADDR_ANY;
+    
+    if (bind(sock_, (sockaddr*)&bind_addr, sizeof(bind_addr)) < 0) {
+#ifdef _WIN32
+        Logger::error("bind() failed: " + std::to_string(WSAGetLastError()));
+        CLOSE_SOCKET(sock_);
+#else
+        Logger::error("bind() failed");
+        CLOSE_SOCKET(sock_);
+#endif
+        return false;
+    }
+    
+    running_ = true;
+    receive_thread_ = std::thread(&UDPServer::receive_loop, this);
+    
+    Logger::info("UDP server started on port " + std::to_string(port_));
+    return true;
+}
+
+void UDPServer::stop() {
+    running_ = false;
+    if (receive_thread_.joinable()) {
+        receive_thread_.join();
+    }
+    if (sock_ >= 0) {
+        CLOSE_SOCKET(sock_);
+        sock_ = -1;
+    }
+}
+
+void UDPServer::send_to(const std::vector<uint8_t>& data, const sockaddr_in& addr) {
+    if (!running_.load() || sock_ < 0) return;
+    
+#ifdef _WIN32
+    sendto(sock_, (char*)data.data(), (int)data.size(), 0, (sockaddr*)&addr, sizeof(addr));
+#else
+    sendto(sock_, data.data(), data.size(), 0, (sockaddr*)&addr, sizeof(addr));
+#endif
+}
+
+void UDPServer::set_message_handler(MessageHandler handler) {
+    message_handler_ = handler;
+}
+
+void UDPServer::receive_loop() {
+    uint8_t buffer[2048];
+    
+    while (running_.load()) {
+        sockaddr_in from{};
+        socklen_t from_len = sizeof(from);
+        
+#ifdef _WIN32
+        int bytes = recvfrom(sock_, (char*)buffer, sizeof(buffer), 0, (sockaddr*)&from, &from_len);
+#else
+        ssize_t bytes = recvfrom(sock_, buffer, sizeof(buffer), 0, (sockaddr*)&from, &from_len);
+#endif
+        
+        if (!running_.load()) break;
+        if (bytes < 0) continue;
+        
+        if (message_handler_) {
+            message_handler_(buffer, bytes, from);
+        }
+    }
+}
