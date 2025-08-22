@@ -63,8 +63,15 @@ set(SOURCES
 # Create executable with platform-specific name
 add_executable(${EXECUTABLE_NAME} ${SOURCES})
 
-# Platform-specific libraries
+# Platform-specific configurations
 if(WIN32)
+    # Windows-specific compile definitions to prevent winsock conflicts
+    target_compile_definitions(${EXECUTABLE_NAME} PRIVATE
+        WIN32_LEAN_AND_MEAN
+        NOMINMAX
+        _WINSOCKAPI_
+    )
+    
     target_link_libraries(${EXECUTABLE_NAME} 
         psmoveapi setupapi ws2_32 winmm
     )
