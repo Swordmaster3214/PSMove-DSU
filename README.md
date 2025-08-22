@@ -36,14 +36,14 @@ The server translates PS Move controller input (accelerometer, gyroscope, and bu
 3. **Run the executable**:
    #### Windows
    ```bash
-   ./dsu_server_psmove-windows-x64.exe
+   ./dsu_server_psmove_windows_win64.exe
    ```
    #### macOS/Linux
    ```bash
-   ./dsu_server_psmove-macos
+   ./dsu_server_psmove_macos_x64
    ```
    ```bash
-   ./dsu_server_psmove-linux
+   ./dsu_server_psmove_linux_x64
    ```
 
 5. **Configure your emulator** to connect to `127.0.0.1:26760` (default DSU port)
