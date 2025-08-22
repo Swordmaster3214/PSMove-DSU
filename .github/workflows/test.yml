@@ -2,7 +2,12 @@ name: Linux Test Build
 
 on:
   workflow_dispatch:
-
+    inputs:
+      branch_name:
+        description: 'Branch to run the workflow on'
+        required: true
+        default: 'main' # Or your default branch
+        
 permissions:
   contents: write
   actions: read
