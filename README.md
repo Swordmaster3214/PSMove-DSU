@@ -72,6 +72,36 @@ PS | PS
 
 ## Building from Source
 
+### File structure
+```
+dsu_server_psmove/
+├── CMakeLists.txt
+├── README.md
+├── src/
+│   ├── main.cpp                    # Entry point and CLI parsing
+│   ├── dsu/
+│   │   ├── dsu_server.hpp         # DSU server interface
+│   │   ├── dsu_server.cpp         # DSU server implementation
+│   │   ├── dsu_protocol.hpp       # DSU protocol definitions
+│   │   └── dsu_protocol.cpp       # DSU protocol implementation
+│   ├── psmove/
+│   │   ├── psmove_manager.hpp     # PSMove controller manager
+│   │   ├── psmove_manager.cpp     # PSMove controller implementation
+│   │   ├── psmove_pairing.hpp     # Pairing functionality
+│   │   └── psmove_pairing.cpp     # Pairing implementation
+│   ├── network/
+│   │   ├── udp_server.hpp         # UDP networking interface
+│   │   └── udp_server.cpp         # UDP networking implementation
+│   ├── utils/
+│   │   ├── logging.hpp            # Logging utilities
+│   │   ├── logging.cpp            # Logging implementation
+│   │   ├── platform.hpp           # Platform-specific definitions
+│   │   ├── signal_handler.hpp     # Signal handling utilities
+│   │   └── signal_handler.cpp     # Signal handling implementation
+│   └── config/
+│       ├── constants.hpp          # Global constants
+│       └── config.hpp             # Configuration management
+```
 ### Prerequisites
 
 #### All Platforms
