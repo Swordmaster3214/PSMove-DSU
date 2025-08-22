@@ -123,89 +123,26 @@ int PSMovePairing::run_pairing_mode() {
     
     std::cout << "   Writing pairing data to controller...\n";
     
-    // Get system Bluetooth address
-    char btaddr_str[18];
-    // The psmove_get_btaddr function gets the controller's address, not the system's
-    // We need the system Bluetooth adapter address for pairing
-    // Try a fallback approach or see if there's another function
-    if (psmove_get_btaddr(usb_controller, btaddr_str) == 0) {
-        Logger::error("Could not get Bluetooth address. Make sure you have a working Bluetooth adapter.");
+    // Try standard pairing
+    int pair_result = psmove_pair(usb_controller);
+    if (pair_result != 1) {
+        Logger::error("Pairing failed. This could indicate USB communication issue, controller malfunction, or Bluetooth adapter not working properly.");
         psmove_disconnect(usb_controller);
         return 1;
     }
     
-    std::cout << "   System Bluetooth address: " << btaddr_str << "\n";
-    
-    // Try pairing - use the standard psmove_pair function
-    int pair_result = psmove_pair(usb_controller);
-    if (pair_result != 1) {
-        std::cout << "Regular pairing failed, trying custom pairing...\n";
-        
-        // Try custom pairing with host string (this matches the actual API)
-        pair_result = psmove_pair_custom(usb_controller, btaddr_str);
-        
-        if (pair_result != 1) {
-            Logger::error("All pairing attempts failed. This could indicate USB communication issue, controller malfunction, or Bluetooth adapter not working properly.");
-            psmove_disconnect(usb_controller);
-            return 1;
-        } else {
-            std::cout << "Custom pairing succeeded!\n";
-        }
-    } else {
-        std::cout << "Regular pairing succeeded!\n";
-    }
-    
+    std::cout << "   Pairing succeeded!\n";
     std::cout << "4. Computer host address written to controller.\n";
     psmove_disconnect(usb_controller);
     
-    // Step 4: Disconnect USB
-    std::cout << "   Disconnect the controller from your computer.\n";
-    wait_for_keypress();
-    
-    // Step 5: Wait for Bluetooth connection
-    std::cout << "5. Power on your controller by pressing the PS button.\n";
-    std::cout << "   Waiting for incoming Bluetooth connection from controller";
-    
-    PSMove* bt_controller = nullptr;
-    for (int attempts = 0; attempts < 60; attempts++) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
-        std::cout << "." << std::flush;
-        
-        bt_controller = psmove_connect();
-        if (bt_controller) {
-            if (psmove_connection_type(bt_controller) == Conn_Bluetooth) {
-                break;
-            } else {
-                psmove_disconnect(bt_controller);
-                bt_controller = nullptr;
-            }
-        }
-    }
-    
-    std::cout << std::endl;
-    
-    if (!bt_controller) {
-        Logger::error("No Bluetooth connection detected after pairing.");
-        std::cout << "\nCommon causes and solutions:\n";
-        std::cout << "1. Bluetooth driver incompatibility (Windows: use Microsoft's built-in stack)\n";
-        std::cout << "2. Bluetooth adapter compatibility (try different adapter)\n";
-        std::cout << "3. Windows Bluetooth settings (remove existing PS Move entries)\n";
-        std::cout << "4. Controller issues (try holding PS button for 10+ seconds)\n\n";
-        std::cout << "The pairing data was successfully written. Try running again or test with different hardware.\n";
-        return 1;
-    }
-    
-    // Step 6: Success!
-    char* bt_serial = psmove_get_serial(bt_controller);
-    std::string bt_mac = format_mac_address(bt_serial);
-    
-    std::cout << "6. Bluetooth connection detected! Pairing process complete.\n";
-    std::cout << "   Controller " << bt_mac << " is now paired and ready to use.\n\n";
-    
-    psmove_disconnect(bt_controller);
+    // Step 4: Disconnect USB and restart
+    std::cout << "5. Disconnect the controller from your computer.\n";
+    std::cout << "6. RESTART YOUR COMPUTER for the pairing to take effect.\n";
+    std::cout << "7. After restart, power on your controller by pressing the PS button.\n\n";
     
     std::cout << "=== Pairing Complete ===\n";
-    std::cout << "You can now run the DSU server normally to use your paired controller.\n";
+    std::cout << "The pairing data has been written to your controller.\n";
+    std::cout << "Please restart your computer, then run the DSU server normally to use your paired controller.\n";
     
     return 0;
 }
