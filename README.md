@@ -27,23 +27,26 @@ The server translates PS Move controller input (accelerometer, gyroscope, and bu
 ### Using Pre-built Binaries
 
 1. **Download** the latest release for your platform:
-   - [Windows](https://github.com/Swordmaster3214/PSMove-DSU/releases/latest/download/dsu_server_psmove-windows-x64.exe)
-   - [macOS](https://github.com/Swordmaster3214/PSMove-DSU/releases/latest/download/dsu_server_psmove-macos)
-   - [Linux](https://github.com/Swordmaster3214/PSMove-DSU/releases/latest/download/dsu_server_psmove-linux)
+   - [Windows](https://github.com/Swordmaster3214/PSMove-DSU/releases/latest/)
+   - [macOS](https://github.com/Swordmaster3214/PSMove-DSU/releases/latest/)
+   - [Linux](https://github.com/Swordmaster3214/PSMove-DSU/releases/latest/)
 
-2. **Connect your PS Move controller** via USB or Bluetooth
+2. **Connect your PS Move controller** via Bluetooth
 
 3. **Run the executable**:
+   #### Windows
    ```bash
-   # Windows
-   ./dsu_server_psmove-windows-x64.exe
-   
-   # macOS/Linux
-   ./dsu_server_psmove-macos
-   ./dsu_server_psmove-linux
+   ./dsu_server_psmove_windows_win64.exe
+   ```
+   #### macOS/Linux
+   ```bash
+   ./dsu_server_psmove_macos_x64
+   ```
+   ```bash
+   ./dsu_server_psmove_linux_x64
    ```
 
-4. **Configure your emulator** to connect to `127.0.0.1:26760` (default DSU port)
+5. **Configure your emulator** to connect to `127.0.0.1:26760` (default DSU port)
 
 ### Button Mappings
 
@@ -62,14 +65,10 @@ PS | PS
 ### Controller Setup
 
 #### Bluetooth Pairing
-**Note:** You will not need to do the following steps if you have already paired your controller with your computer using [PSMoveAPI](https://github.com/thp/psmoveapi)
-1. Connect the PS Move controller via USB first
-2. Use the auto-pairing utility in the program to pair via Bluetooth, note that it may require elevated permissions because it accesses your device's bluetooth stack
-
-Once paired, disconnect the cable and power it on, a solid red light indicates that the controller can be used wirelessly
-
-#### USB Connection
-Simply connect the PS Move controller via USB cable - it should be detected automatically.
+**Note:** You will not need to do the following if you have already paired your controller with your computer using [PSMoveAPI](https://github.com/thp/psmoveapi)
+```bash
+./dsu_server_psmove --pair
+```
 
 ## Building from Source
 
@@ -78,7 +77,7 @@ Simply connect the PS Move controller via USB cable - it should be detected auto
 #### All Platforms
 - **CMake** 3.10 or higher
 - **C++ compiler** with C++17 support
-- **PSMoveAPI 4.0.12** (automatically downloaded by build process)
+- **PSMoveAPI 4.0.12** [downloaded](https://github.com/thp/psmoveapi/releases/latest/)
 
 #### Linux
 ```bash
@@ -98,33 +97,32 @@ brew install libusb
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/Swordmaster3214/PSMove-DSU.git
-   cd PSMove-DSU
+   git clone https://github.com/Swordmaster3214/PSMove-DSU.git && cd PSMove-DSU
    ```
 
 2. **Create build directory**:
    ```bash
-   mkdir build
-   cd build
+   mkdir build && cd build
    ```
 
 3. **Configure with CMake**:
+   #### Linux/macOS
    ```bash
-   # Linux/macOS
-   cmake -DCMAKE_BUILD_TYPE=Release ..
-   
-   # Windows
-   cmake ..
+   cmake -DCMAKE_BUILD_TYPE=Release -DPSMOVE_ROOT=/path/to/psmoveapi ..
+   ```
+   #### Windows
+   ```bash
+   cmake -DPSMOVE_ROOT=/path/to/psmoveapi ..
    ```
 
-4. **Build the project**:
+5. **Build the project**:
    ```bash
    cmake --build . --config Release
    ```
 
-5. **Run the executable**:
+6. **Run the executable**:
+   The executable will be in the build directory
    ```bash
-   # The executable will be in the build directory
    ./dsu_server_psmove
    ```
 
@@ -135,7 +133,6 @@ If you have PSMoveAPI installed in a custom location:
 ```bash
 cmake -DPSMOVE_ROOT=/path/to/psmoveapi ..
 ```
-
 ## Configuration
 
 ### DSU Server Settings
@@ -158,7 +155,7 @@ The server runs on `127.0.0.1:26760` by default, which is the standard DSU port.
 ## Troubleshooting
 
 ### Controller Not Detected
-- Ensure the PS Move controller is properly connected (USB) or paired (Bluetooth)
+- Ensure the PS Move controller is properly paired
 - On Linux, you may need to run with `sudo` for USB access permissions
 - Check that no other applications are using the controller
 
@@ -174,11 +171,11 @@ The server runs on `127.0.0.1:26760` by default, which is the standard DSU port.
 
 ### Linux Permissions
 If you get permission errors accessing the controller:
+Add udev rules for PS Move controller
 ```bash
-# Add udev rules for PS Move controller
 sudo usermod -a -G plugdev $USER
-# Log out and back in for changes to take effect
 ```
+Log out and back in for changes to take effect
 
 ## Technical Details
 
@@ -196,7 +193,7 @@ sudo usermod -a -G plugdev $USER
 
 ### Performance
 - **Low latency**: Direct USB/Bluetooth communication
-- **Single-controller**: Supports one PS Move controller
+- **Multi-controller**: Support in the project is implemented for multiple controllers, but only one seems to be working 😅
 
 ## Contributing
 
@@ -221,9 +218,7 @@ Contributions are welcome! Please feel free to submit pull requests, report issu
 - **PSMoveAPI Documentation**: [psmoveapi.readthedocs.io](https://psmoveapi.readthedocs.io/)
 - **DSU Protocol**: [Cemuhook Documentation](https://cemuhook.sshnuke.net/)
 
----
 
-**Note**: PlayStation Move controllers require initial USB connection for setup, even when using Bluetooth. Ensure your controllers are properly calibrated using PSMoveAPI tools before use.
 
 ## Licensing
 License details for this project are in the LICENSE file.
