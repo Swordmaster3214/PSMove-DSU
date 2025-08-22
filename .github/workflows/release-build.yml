@@ -134,13 +134,13 @@ jobs:
               echo "ERROR: Could not find Windows executable $EXEC_NAME"
               exit 1
             fi
-            ARTIFACT_NAME="${EXEC_NAME%.exe}-windows-x64.exe"
+            ARTIFACT_NAME="$EXEC_NAME"
           elif [ "${{ runner.os }}" = "macOS" ]; then
             EXEC_PATH="build/$EXEC_NAME"
-            ARTIFACT_NAME="$EXEC_NAME-macos"
+            ARTIFACT_NAME="$EXEC_NAME"
           else
             EXEC_PATH="build/$EXEC_NAME"
-            ARTIFACT_NAME="$EXEC_NAME-linux"
+            ARTIFACT_NAME="$EXEC_NAME"
           fi
           
           echo "name=$ARTIFACT_NAME" >> $GITHUB_OUTPUT
