@@ -20,5 +20,3 @@ private:
     static void handle_sigint(int);
 #endif
 };
-
-extern std::atomic<bool> g_running;
