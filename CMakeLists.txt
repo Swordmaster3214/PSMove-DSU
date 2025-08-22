@@ -57,6 +57,7 @@ set(SOURCES
     src/psmove/psmove_pairing.cpp
     src/network/udp_server.cpp
     src/utils/logging.cpp
+    src/utils/signal_handler.cpp
 )
 
 # Create executable with platform-specific name
