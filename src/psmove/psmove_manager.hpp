@@ -7,6 +7,7 @@
 #include <atomic>
 #include <optional>
 #include <string>
+#include <vector>
 
 #ifndef _WIN32
 #include <pthread.h>
@@ -29,10 +30,15 @@ public:
     
 private:
     void thread_main();
-    void scan_for_controllers();
     std::string get_serial_safe(PSMove* controller);
     std::string get_connection_type_string(PSMove* controller);
     int find_serial_slot(const std::string& serial);
+    
+    // NEW: Background scanning methods
+    void scanner_thread_main();
+    void scan_for_controllers_async();
+    void integrate_scanned_controller(PSMove* controller, const std::string& serial, int target_slot);
+    void integrate_pending_controllers();
     
     PSMove* controllers_[Constants::MAX_CONTROLLERS];
     bool has_data_[Constants::MAX_CONTROLLERS];
@@ -45,4 +51,16 @@ private:
     std::thread worker_;
     std::atomic<bool> running_;
     std::mutex mtx_;  // Only for controller management, not data access
+    
+    // NEW: Scanner thread members
+    std::thread scanner_thread_;
+    std::atomic<bool> scan_requested_{false};
+    std::mutex pending_controllers_mutex_;
+    
+    struct PendingController {
+        PSMove* controller;
+        std::string serial;
+        int target_slot;
+    };
+    std::vector<PendingController> pending_controllers_;
 };
