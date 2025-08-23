@@ -35,13 +35,24 @@ bool PSMoveManager::start() {
 #endif
     
     running_ = true;
+    
+    // Start background scanner thread FIRST
+    scanner_thread_ = std::thread(&PSMoveManager::scanner_thread_main, this);
+    
+    // Start main polling thread
     worker_ = std::thread(&PSMoveManager::thread_main, this);
-    Logger::debug("PSMove manager started with Windows latency fixes");
+    
+    Logger::debug("PSMove manager started with background scanning (zero-latency)");
     return true;
 }
 
 void PSMoveManager::stop() {
     running_ = false;
+    
+    // Join threads
+    if (scanner_thread_.joinable()) {
+        scanner_thread_.join();
+    }
     if (worker_.joinable()) {
         worker_.join();
     }
@@ -51,6 +62,7 @@ void PSMoveManager::stop() {
     timeEndPeriod(1);
 #endif
     
+    // Cleanup controllers
     std::lock_guard<std::mutex> lk(mtx_);
     for (int i = 0; i < Constants::MAX_CONTROLLERS; i++) {
         if (controllers_[i]) {
@@ -58,6 +70,17 @@ void PSMoveManager::stop() {
             controllers_[i] = nullptr;
         }
         latest_atomic_[i].store(nullptr);
+    }
+    
+    // Cleanup pending controllers
+    {
+        std::lock_guard<std::mutex> pending_lock(pending_controllers_mutex_);
+        for (auto& pending : pending_controllers_) {
+            if (pending.controller) {
+                psmove_disconnect(pending.controller);
+            }
+        }
+        pending_controllers_.clear();
     }
 }
 
@@ -118,9 +141,7 @@ void PSMoveManager::thread_main() {
     // OPTIMIZATION: Set high thread priority for consistent timing
 #ifdef _WIN32
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
-    
-    // CRITICAL Windows fix: Set thread affinity to prevent CPU core switching
-    DWORD_PTR mask = 1; // Pin to CPU core 0
+    DWORD_PTR mask = 1;
     if (SetThreadAffinityMask(GetCurrentThread(), mask) == 0) {
         Logger::debug("Could not set thread affinity (non-critical)");
     } else {
@@ -134,24 +155,21 @@ void PSMoveManager::thread_main() {
     }
 #endif
     
-    // FIX: Use consistent clock type - steady_clock for both variables
-    auto last_scan = std::chrono::steady_clock::now() - std::chrono::seconds(10);
-    const auto scan_interval = std::chrono::seconds(5);
+    // REMOVED: auto last_scan and scan_interval - no longer needed!
     int debug_counter = 0;
     int latency_warning_counter = 0;
     int flush_counter = 0;
     
+    // Request initial scan
+    scan_requested_.store(true);
+    
     while (running_) {
-        // FIX: Use steady_clock consistently instead of high_resolution_clock
         auto loop_start = std::chrono::steady_clock::now();
         
-        // Periodically scan for new controllers
-        if (loop_start - last_scan >= scan_interval) {
-            last_scan = loop_start;
-            scan_for_controllers();
-        }
+        // OPTIMIZATION: Integrate any newly discovered controllers (fast operation)
+        integrate_pending_controllers();
         
-        // Poll all connected controllers
+        // Poll all connected controllers (unchanged)
         {
             std::lock_guard<std::mutex> lk(mtx_);
             for (int slot = 0; slot < Constants::MAX_CONTROLLERS; slot++) {
@@ -168,42 +186,40 @@ void PSMoveManager::thread_main() {
                     controllers_[slot] = nullptr;
                     has_data_[slot] = false;
                     latest_atomic_[slot].store(nullptr, std::memory_order_release);
+                    
+                    // Request rescan after controller loss
+                    scan_requested_.store(true);
                     continue;
                 }
                 
                 uint64_t poll_timestamp = std::chrono::duration_cast<std::chrono::microseconds>(
                     std::chrono::high_resolution_clock::now().time_since_epoch()).count();
                 
-                // WINDOWS CRITICAL FIX: Multiple polling attempts with immediate retry
+                // Windows polling logic (unchanged)
                 bool got_data = false;
                 int poll_attempts = 0;
                 
 #ifdef _WIN32
-                // Windows: Try multiple times immediately to break through buffering
                 const int max_attempts = 5;
                 for (int attempt = 0; attempt < max_attempts && !got_data; attempt++) {
                     got_data = psmove_poll(controllers_[slot]);
                     poll_attempts++;
                     if (!got_data && attempt < max_attempts - 1) {
-                        // Tiny delay between attempts
                         std::this_thread::sleep_for(std::chrono::microseconds(200));
                     }
                 }
                 
-                // WINDOWS CRITICAL FIX: Periodic buffer flush to prevent 1-second delays
-                if ((++flush_counter % 200) == 0) { // Every 200 polls (about 1 second at 250Hz)
+                if ((++flush_counter % 200) == 0) {
                     int flushed = 0;
                     while (psmove_poll(controllers_[slot]) && flushed < 50) {
-                        flushed++; // Drain up to 50 buffered packets
+                        flushed++;
                     }
-                    if (flushed > 5) { // Only log if significant buffering occurred
+                    if (flushed > 5) {
                         Logger::warn("Windows: Flushed " + std::to_string(flushed) + 
-                                   " buffered packets from slot " + std::to_string(slot) + 
-                                   " - this indicates Windows HID buffering issues");
+                                   " buffered packets from slot " + std::to_string(slot));
                     }
                 }
 #else
-                // Linux: Single poll attempt
                 got_data = psmove_poll(controllers_[slot]);
                 poll_attempts = 1;
 #endif
@@ -212,7 +228,7 @@ void PSMoveManager::thread_main() {
                     continue;
                 }
                 
-                // Read sensor data
+                // Read sensor data (unchanged)
                 float ax = 0, ay = 0, az = 0;
                 psmove_get_accelerometer_frame(controllers_[slot], Frame_SecondHalf, &ax, &ay, &az);
                 
@@ -225,7 +241,7 @@ void PSMoveManager::thread_main() {
                 uint64_t ts = std::chrono::duration_cast<std::chrono::microseconds>(
                     std::chrono::steady_clock::now().time_since_epoch()).count();
                 
-                // Use double buffering
+                // Double buffering (unchanged)
                 int current_buf = current_buffer_[slot].load();
                 int next_buf = 1 - current_buf;
                 
@@ -242,27 +258,26 @@ void PSMoveManager::thread_main() {
                 latest_atomic_[slot].store(&sample, std::memory_order_release);
                 has_data_[slot] = true;
                 
-                // Enhanced debug output for Windows
-                if (slot == 0 && (++debug_counter % 1000) == 0) { // Every 4 seconds at 250Hz
+                // Debug output (unchanged)
+                if (slot == 0 && (++debug_counter % 1000) == 0) {
                     uint64_t processing_latency = ts - poll_timestamp;
                     Logger::info("Slot " + std::to_string(slot) + " - " + 
                                get_serial_safe(controllers_[slot]) +
                                " | Processing: " + std::to_string(processing_latency) + "µs" +
                                " | Poll attempts: " + std::to_string(poll_attempts));
                     
-                    if (processing_latency > 50000) { // > 50ms indicates serious issue
+                    if (processing_latency > 50000) {
                         Logger::error("CRITICAL: Very high processing latency: " + 
-                                    std::to_string(processing_latency) + "µs - Windows HID issue likely");
+                                    std::to_string(processing_latency) + "µs");
                     }
                 }
             }
         }
         
-        // High-precision timing - FIX: Use steady_clock for consistent timing
+        // High-precision timing (unchanged)
         auto next_time = loop_start + std::chrono::microseconds(Constants::PSMOVE_POLL_MS * 1000);
         
 #ifdef _WIN32
-        // Windows: More aggressive timing to combat scheduling issues
         while (std::chrono::steady_clock::now() < next_time) {
             std::this_thread::sleep_for(std::chrono::microseconds(50));
         }
@@ -272,13 +287,42 @@ void PSMoveManager::thread_main() {
     }
 }
 
-void PSMoveManager::scan_for_controllers() {
-    std::lock_guard<std::mutex> lk(mtx_);
-    Logger::debug("=== CONTROLLER SCAN START ===");
+// NEW: Background scanner thread
+void PSMoveManager::scanner_thread_main() {
+    // Lower priority than main polling thread
+#ifdef _WIN32
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
+#else
+    struct sched_param param;
+    param.sched_priority = 30; // Lower than polling thread
+    pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
+#endif
     
+    while (running_) {
+        // Check if scan is requested
+        if (scan_requested_.exchange(false)) {
+            Logger::debug("=== BACKGROUND CONTROLLER SCAN START ===");
+            scan_for_controllers_async();
+            Logger::debug("=== BACKGROUND SCAN COMPLETE ===");
+        }
+        
+        // Check every 100ms, but also periodically request scans
+        static int scan_timer = 0;
+        if (++scan_timer >= 50) { // Every 5 seconds (50 * 100ms)
+            scan_timer = 0;
+            scan_requested_.store(true);
+        }
+        
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+}
+
+// NEW: Non-blocking controller scan
+void PSMoveManager::scan_for_controllers_async() {
     std::vector<PSMove*> available_controllers;
     std::vector<std::string> available_serials;
     
+    // Scan for controllers (this is the slow part, but now in background)
     for (int id = 0; id < 8; id++) {
         PSMove* controller = psmove_connect_by_id(id);
         if (!controller) continue;
@@ -292,7 +336,16 @@ void PSMoveManager::scan_for_controllers() {
             continue;
         }
         
-        if (find_serial_slot(serial) >= 0) {
+        // Check if already connected (need mutex for this check)
+        bool already_connected = false;
+        {
+            std::lock_guard<std::mutex> lk(mtx_);
+            if (find_serial_slot(serial) >= 0) {
+                already_connected = true;
+            }
+        }
+        
+        if (already_connected) {
             Logger::debug("Skipping " + serial + " - already connected");
             psmove_disconnect(controller);
             continue;
@@ -303,48 +356,85 @@ void PSMoveManager::scan_for_controllers() {
         Logger::debug("Found " + serial + " (" + conn_type + ")");
     }
     
-    for (size_t i = 0; i < available_controllers.size(); i++) {
-        PSMove* controller = available_controllers[i];
-        std::string serial = available_serials[i];
+    // Queue new controllers for integration
+    {
+        std::lock_guard<std::mutex> pending_lock(pending_controllers_mutex_);
         
-        int free_slot = -1;
-        for (int slot = 0; slot < Constants::MAX_CONTROLLERS; slot++) {
-            if (!controllers_[slot]) {
-                free_slot = slot;
-                break;
+        for (size_t i = 0; i < available_controllers.size(); i++) {
+            PSMove* controller = available_controllers[i];
+            std::string serial = available_serials[i];
+            
+            // Find target slot
+            int target_slot = -1;
+            {
+                std::lock_guard<std::mutex> lk(mtx_);
+                for (int slot = 0; slot < Constants::MAX_CONTROLLERS; slot++) {
+                    if (!controllers_[slot]) {
+                        target_slot = slot;
+                        break;
+                    }
+                }
             }
-        }
-        
-        if (free_slot == -1) {
-            Logger::warn("No free slots for " + serial);
-            psmove_disconnect(controller);
-            continue;
-        }
-        
-        controllers_[free_slot] = controller;
-        has_data_[free_slot] = false;
-        latest_atomic_[free_slot].store(nullptr, std::memory_order_release);
-        
+            
+            if (target_slot == -1) {
+                Logger::warn("No free slots for " + serial);
+                psmove_disconnect(controller);
+                continue;
+            }
+            
+            // Initialize controller in background
 #ifdef _WIN32
-        // Windows: Initialize controller to prevent buffering issues
-        psmove_set_leds(controller, 0, 0, 0);
-        psmove_update_leds(controller);
-        
-        // Drain any initial buffered data
-        int drained = 0;
-        while (psmove_poll(controller) && drained < 100) {
-            drained++;
-        }
-        if (drained > 0) {
-            Logger::info("Windows: Drained " + std::to_string(drained) + 
-                        " initial buffered packets from " + serial);
-        }
+            psmove_set_leds(controller, 0, 0, 0);
+            psmove_update_leds(controller);
+            
+            int drained = 0;
+            while (psmove_poll(controller) && drained < 100) {
+                drained++;
+            }
+            if (drained > 0) {
+                Logger::info("Windows: Drained " + std::to_string(drained) + 
+                            " initial buffered packets from " + serial);
+            }
 #endif
-        
-        Logger::info("Assigned " + serial + " -> Slot " + std::to_string(free_slot));
+            
+            PendingController pending = {controller, serial, target_slot};
+            pending_controllers_.push_back(pending);
+            
+            Logger::info("Queued " + serial + " for assignment to Slot " + std::to_string(target_slot));
+        }
+    }
+}
+
+// NEW: Fast integration of discovered controllers
+void PSMoveManager::integrate_pending_controllers() {
+    std::lock_guard<std::mutex> pending_lock(pending_controllers_mutex_);
+    
+    if (pending_controllers_.empty()) {
+        return;
     }
     
-    Logger::debug("=== SCAN COMPLETE ===");
+    // Brief lock to integrate controllers
+    {
+        std::lock_guard<std::mutex> lk(mtx_);
+        
+        for (auto& pending : pending_controllers_) {
+            if (pending.target_slot >= 0 && pending.target_slot < Constants::MAX_CONTROLLERS &&
+                !controllers_[pending.target_slot]) {
+                
+                controllers_[pending.target_slot] = pending.controller;
+                has_data_[pending.target_slot] = false;
+                latest_atomic_[pending.target_slot].store(nullptr, std::memory_order_release);
+                
+                Logger::info("Integrated " + pending.serial + " -> Slot " + std::to_string(pending.target_slot));
+            } else {
+                // Slot taken, disconnect
+                Logger::warn("Slot " + std::to_string(pending.target_slot) + " taken, disconnecting " + pending.serial);
+                psmove_disconnect(pending.controller);
+            }
+        }
+    }
+    
+    pending_controllers_.clear();
 }
 
 std::string PSMoveManager::get_serial_safe(PSMove* controller) {
