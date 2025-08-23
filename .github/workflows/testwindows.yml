@@ -1,0 +1,116 @@
+name: Windows Test Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch_name:
+        description: 'Branch to run the workflow on'
+        required: true
+        default: 'main' # Or your default branch
+        
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download psmoveapi
+        run: |
+          curl -L -o psmoveapi.psmoveapi-4.0.12-windows-msvc2017-x64.zip https://github.com/thp/psmoveapi/releases/download/4.0.12/psmoveapi-4.0.12-windows-msvc2017-x64.zip
+
+      - name: Extract psmoveapi
+        run: |
+          mkdir -p psmoveapi_install
+          tar -xf psmoveapi.psmoveapi-4.0.12-windows-msvc2017-x64.zip -C psmoveapi_install --strip-components=1
+
+      - name: Configure with CMake
+        run: cmake -S . -B build -DPSMOVE_ROOT=${{ github.workspace }}/psmoveapi_install
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: List build directory contents (debug)
+        run: |
+          echo "Contents of build directory:"
+          Get-ChildItem build/ -Recurse
+          echo "Contents of build/Release directory:"
+          if (Test-Path "build/Release") {
+            Get-ChildItem build/Release/
+          } else {
+            echo "build/Release/ does not exist"
+          }
+          echo "Contents of build/Debug directory:"
+          if (Test-Path "build/Debug") {
+            Get-ChildItem build/Debug/
+          } else {
+            echo "build/Debug/ does not exist"
+          }
+
+      - name: Check for specific executable
+        run: |
+          $executableFound = $false
+          if (Test-Path "build/Release/dsu_server_psmove_win64.exe") {
+            echo "Found dsu_server_psmove_win64.exe in Release"
+            Get-Item build/Release/dsu_server_psmove_win64.exe
+            $executableFound = $true
+          } elseif (Test-Path "build/Debug/dsu_server_psmove_win64.exe") {
+            echo "Found dsu_server_psmove_win64.exe in Debug"
+            Get-Item build/Debug/dsu_server_psmove_win64.exe
+            $executableFound = $true
+          } elseif (Test-Path "build/dsu_server_psmove_win64.exe") {
+            echo "Found dsu_server_psmove_win64.exe in build root"
+            Get-Item build/dsu_server_psmove_win64.exe
+            $executableFound = $true
+          }
+          
+          if (-not $executableFound) {
+            echo "dsu_server_psmove_win64.exe not found, listing all .exe files:"
+            Get-ChildItem build/ -Recurse -Filter "*.exe"
+          }
+
+      - name: Upload executable to repository
+        run: |
+          # Configure git
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          # Find the executable in the most likely locations
+          $executablePath = $null
+          $targetName = "dsu_server_psmove_win64.exe"
+          
+          if (Test-Path "build/Release/$targetName") {
+            $executablePath = "build/Release/$targetName"
+          } elseif (Test-Path "build/Debug/$targetName") {
+            $executablePath = "build/Debug/$targetName"
+          } elseif (Test-Path "build/$targetName") {
+            $executablePath = "build/$targetName"
+          }
+          
+          if (-not $executablePath) {
+            echo "ERROR: $targetName not found"
+            exit 1
+          }
+          
+          echo "Found executable at: $executablePath"
+          
+          # Copy the executable to the root of the repository
+          Copy-Item $executablePath ./$targetName
+          
+          # Add and commit the file
+          git add $targetName
+          
+          # Check if there are changes to commit
+          $changes = git diff --staged --quiet
+          if ($LASTEXITCODE -eq 0) {
+            echo "No changes to commit - executable is already up to date"
+          } else {
+            git commit -m "Update Windows x64 executable from workflow run"
+            git push
+            echo "Successfully uploaded $targetName to repository"
+          }
+        shell: powershell
