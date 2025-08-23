@@ -134,6 +134,7 @@ void PSMoveManager::thread_main() {
     }
 #endif
     
+    // FIX: Use consistent clock type - steady_clock for both variables
     auto last_scan = std::chrono::steady_clock::now() - std::chrono::seconds(10);
     const auto scan_interval = std::chrono::seconds(5);
     int debug_counter = 0;
@@ -141,7 +142,8 @@ void PSMoveManager::thread_main() {
     int flush_counter = 0;
     
     while (running_) {
-        auto loop_start = std::chrono::high_resolution_clock::now();
+        // FIX: Use steady_clock consistently instead of high_resolution_clock
+        auto loop_start = std::chrono::steady_clock::now();
         
         // Periodically scan for new controllers
         if (loop_start - last_scan >= scan_interval) {
@@ -256,12 +258,12 @@ void PSMoveManager::thread_main() {
             }
         }
         
-        // High-precision timing
+        // High-precision timing - FIX: Use steady_clock for consistent timing
         auto next_time = loop_start + std::chrono::microseconds(Constants::PSMOVE_POLL_MS * 1000);
         
 #ifdef _WIN32
         // Windows: More aggressive timing to combat scheduling issues
-        while (std::chrono::high_resolution_clock::now() < next_time) {
+        while (std::chrono::steady_clock::now() < next_time) {
             std::this_thread::sleep_for(std::chrono::microseconds(50));
         }
 #else
