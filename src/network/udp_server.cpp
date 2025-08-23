@@ -50,10 +50,6 @@ bool UDPServer::start() {
         Logger::warn("Failed to set send buffer size: " + std::to_string(WSAGetLastError()));
     }
     
-    // Disable Nagle's algorithm for lower latency
-    int nodelay = 1;
-    setsockopt(sock_, IPPROTO_TCP, TCP_NODELAY, (char*)&nodelay, sizeof(nodelay));
-    
 #else
     setsockopt(sock_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
     
