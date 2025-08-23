@@ -8,6 +8,11 @@
 #include <optional>
 #include <string>
 
+#ifndef _WIN32
+#include <pthread.h>
+#include <sched.h>
+#endif
+
 class PSMoveManager {
 public:
     PSMoveManager();
@@ -30,10 +35,14 @@ private:
     int find_serial_slot(const std::string& serial);
     
     PSMove* controllers_[Constants::MAX_CONTROLLERS];
-    MoveSample latest_[Constants::MAX_CONTROLLERS];
     bool has_data_[Constants::MAX_CONTROLLERS];
+    
+    // OPTIMIZATION: Lock-free double buffering for sample data
+    MoveSample samples_[Constants::MAX_CONTROLLERS][2];  // Double buffer per controller
+    std::atomic<int> current_buffer_[Constants::MAX_CONTROLLERS];  // Which buffer is current
+    std::atomic<MoveSample*> latest_atomic_[Constants::MAX_CONTROLLERS];  // Atomic pointer to current data
     
     std::thread worker_;
     std::atomic<bool> running_;
-    std::mutex mtx_;
+    std::mutex mtx_;  // Only for controller management, not data access
 };
