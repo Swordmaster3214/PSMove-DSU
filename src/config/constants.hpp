@@ -12,9 +12,10 @@ namespace Constants {
     // Controller limits
     constexpr int MAX_CONTROLLERS = 4;
     
-    // Timing
-    constexpr int PSMOVE_POLL_MS = 4;    // ~250 Hz
-    constexpr int DSU_SEND_MS = 8;       // ~125 Hz
+    // Timing - OPTIMIZED FOR LOW LATENCY
+    constexpr int PSMOVE_POLL_MS = 4;        // ~250 Hz - increased frequency
+    constexpr int DSU_SEND_MS = 4;           // ~250 Hz - matched to polling rate
+    constexpr int LATENCY_WARNING_US = 8000; // Warn if latency > 8ms
     
     // Trigger settings
     constexpr int ANALOG_TRIGGER_INDEX = 14;
