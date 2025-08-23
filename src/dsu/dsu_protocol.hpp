@@ -6,8 +6,18 @@ struct MoveSample {
     float accel_x = 0, accel_y = 0, accel_z = 1.0f;
     float gyro_x = 0, gyro_y = 0, gyro_z = 0;
     uint64_t timestamp_us = 0;
+    uint64_t poll_timestamp_us = 0;    // NEW: When data was polled from PSMove
+    uint64_t send_timestamp_us = 0;    // NEW: When data was sent over network
     unsigned int buttons = 0;
     unsigned char trigger = 0;
+    
+    // NEW: Get end-to-end latency
+    uint64_t get_latency_us() const {
+        if (send_timestamp_us > poll_timestamp_us) {
+            return send_timestamp_us - poll_timestamp_us;
+        }
+        return 0;
+    }
 };
 
 class DSUProtocol {

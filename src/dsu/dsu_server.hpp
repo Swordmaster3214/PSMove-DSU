@@ -1,5 +1,6 @@
 #pragma once
 #include "config/config.hpp"
+#include "config/constants.hpp"
 #include "network/udp_server.hpp"
 #include "psmove/psmove_manager.hpp"
 #include "dsu/dsu_protocol.hpp"
