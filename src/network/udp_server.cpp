@@ -4,6 +4,8 @@
 
 #ifndef _WIN32
 #include <fcntl.h>
+#else
+#include <processthreadsapi.h>
 #endif
 
 UDPServer::UDPServer(int port) : port_(port), sock_(-1), running_(false) {
