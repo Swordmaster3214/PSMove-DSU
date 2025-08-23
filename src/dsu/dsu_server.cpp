@@ -7,6 +7,7 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#include <processthreadsapi.h>
 #endif
 
 DSUServer::DSUServer(const Config& config) 
