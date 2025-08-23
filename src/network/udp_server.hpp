@@ -15,6 +15,10 @@ public:
     bool start();
     void stop();
     void send_to(const std::vector<uint8_t>& data, const sockaddr_in& addr);
+    
+    // NEW: Batch send for better performance
+    void send_to_multiple(const std::vector<uint8_t>& data, const std::vector<sockaddr_in>& addresses);
+    
     void set_message_handler(MessageHandler handler);
     
     bool is_running() const { return running_.load(); }
