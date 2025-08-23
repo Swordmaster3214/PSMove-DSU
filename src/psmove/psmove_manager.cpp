@@ -2,10 +2,12 @@
 #include "utils/logging.hpp"
 #include <chrono>
 #include <cstdlib>
+#include <vector>
 
 #ifdef _WIN32
 #include <windows.h>
 #include <mmsystem.h>  // For timeBeginPeriod
+#include <processthreadsapi.h> // For thread priority
 #pragma comment(lib, "winmm.lib")
 #endif
 
