@@ -67,9 +67,15 @@ bool UDPServer::start() {
         fcntl(sock_, F_SETFL, flags | O_NONBLOCK);
     }
     
-    // Set high priority for UDP packets (requires root on Linux)
+    // FIXED: Set high priority for UDP packets (Linux only)
+#ifdef __linux__
     int priority = 7;
-    setsockopt(sock_, SOL_SOCKET, SO_PRIORITY, &priority, sizeof(priority));
+    if (setsockopt(sock_, SOL_SOCKET, SO_PRIORITY, &priority, sizeof(priority)) != 0) {
+        Logger::debug("Could not set socket priority (non-critical)");
+    }
+#endif
+    // Note: macOS doesn't support SO_PRIORITY, but that's okay - it's just an optimization
+    
 #endif
     
     sockaddr_in bind_addr{};
