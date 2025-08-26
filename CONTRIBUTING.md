@@ -1,6 +1,6 @@
 # Contributing to PSMove-DSU
 
-Thank you for your interest in contributing to PSMove-DSU! This project provides a high-performance DSU (DualShock UDP) server for PlayStation Move controllers, optimized for low-latency motion tracking in VR and gaming applications.
+Thank you for your interest in contributing to PSMove-DSU! This project provides a high-performance DSU (DualShock UDP) server for PlayStation Move controllers, optimized for low-latency motion tracking in supported emulators.
 
 ## Quick Start
 
@@ -53,7 +53,7 @@ The executable will be created as:
 - macOS: `dsu_server_psmove_macos_x64` or `dsu_server_psmove_macos_arm64`
 - Windows: `dsu_server_psmove_win64.exe`
 
-## 📝 Contributing Guidelines
+## Contributing Guidelines
 
 ### Code Style
 
@@ -175,13 +175,14 @@ This is a **real-time, low-latency** application. When contributing:
 3. **Performance validation** for timing-critical changes
 4. **Testing** on real hardware when possible
 
-## 🎯 Priority Areas for Contributions
+## Priority Areas for Contributions
 
 ### High Priority
 - **Windows latency optimization**: Windows HID layer improvements
 - **Controller compatibility**: Support for new PlayStation Move variants
 - **Memory optimization**: Reducing CPU usage and memory footprint
 - **Cross-platform testing**: Ensuring consistent behavior across platforms
+- **Multiple controllers**: Enabling the use of multiple controllers
 
 ### Medium Priority  
 - **Configuration system**: More flexible axis mapping and filtering
@@ -193,14 +194,14 @@ This is a **real-time, low-latency** application. When contributing:
 - **Protocol extensions**: DSU protocol is well-established
 - **Alternative controllers**: Focus is on PlayStation Move devices
 
-## 📚 Useful Resources
+## Useful Resources
 
 - **PSMoveAPI Documentation**: https://github.com/thp/psmoveapi
-- **DSU Protocol Spec**: https://github.com/Ryochan7/ds4windows/wiki/DSU-Protocol
+- **DSU Protocol Spec**: https://v1993.github.io/cemuhook-protocol/
 - **Real-time Programming**: Understanding thread priorities and timing
 - **HID Protocol**: USB/Bluetooth Human Interface Device standards
 
-## 🔍 Testing
+## Testing
 
 ### Manual Testing Checklist
 - [ ] Controller pairing works (`--pair` mode)
