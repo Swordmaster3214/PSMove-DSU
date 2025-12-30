@@ -367,6 +367,8 @@ These message types are not part of the original Cemuhook specification but are 
 
 **Dolphin Quirk:** Dolphin requires BOTH digital button bitmasks (bytes 16-18) AND analog button values (bytes 28-35) to be set correctly. Even if your controller has only digital buttons, you must set analog values to either 0 (released) or 255 (pressed).
 
+**Note about controller button naming and mapping:** PlayStation controllers use symbolic face buttons (Cross, Circle, Square, Triangle) which do not directly map to the Nintendo/Xbox-style A/B/X/Y ordering that some DSU clients (e.g., Dolphin or Cemu) expect. A differing bitmask layout is used by the server so that PlayStation controllers are represented consistently to clients; do not change the bitmask ordering without confirming client expectations. Also ensure you set both the digital bitmasks and the corresponding analog values (bytes 28-35) when adding or modifying mappings.
+
 **Subscription Management:**
 ```
 - Store client address + subscription info when you receive 0x100002

@@ -159,22 +159,22 @@ std::vector<uint8_t> DSUProtocol::make_data_packet(uint32_t server_id, uint8_t s
         dsubitmask2 |= 0x02u;
     }
     
-    // Write control bytes
-    size_t control_offset = 14;
+    // Write control bytes (payload offsets 16=Buttons1, 17=Buttons2, 18=HOME)
+    size_t control_offset = 16;
     if (p.size() >= control_offset + 4) {
         p[control_offset + 0] = dsubitmask1;
         p[control_offset + 1] = dsubitmask2;
         p[control_offset + 2] = dsuhome;
     }
     
-    // Analog face buttons
-    size_t analog_base = 18;
+    // Analog face buttons (analog block starts at payload offset 20; face buttons start at +8)
+    size_t analog_base = 20;
     if (p.size() >= analog_base + 16) {
-        p[analog_base + 8] = (sample.buttons & Btn_TRIANGLE) ? 255u : 0u;
-        p[analog_base + 9] = (sample.buttons & Btn_CIRCLE) ? 255u : 0u;
-        p[analog_base + 10] = (sample.buttons & Btn_CROSS) ? 255u : 0u;
-        p[analog_base + 11] = (sample.buttons & Btn_SQUARE) ? 255u : 0u;
-        p[analog_base + 12] = (sample.buttons & Btn_MOVE) ? 255u : 0u;
+        p[analog_base + 8] = (sample.buttons & Btn_TRIANGLE) ? 255u : 0u; // 28
+        p[analog_base + 9] = (sample.buttons & Btn_CIRCLE) ? 255u : 0u;   // 29
+        p[analog_base + 10] = (sample.buttons & Btn_CROSS) ? 255u : 0u;   // 30
+        p[analog_base + 11] = (sample.buttons & Btn_SQUARE) ? 255u : 0u;   // 31
+        p[analog_base + 12] = (sample.buttons & Btn_MOVE) ? 255u : 0u;     // 32 (R1)
     }
     
     // Trigger analog
