@@ -1,3 +1,7 @@
+## ⚠️ Notice:
+I am busy with school at the moment so I may not be able to provide updates on a normal cadence. I may pop in from time to time, but do not expect any sort of continuous support of this project for the time being.
+However, if you wish to help contribute to this project, feel free to do so! I am looking for help, especially when it comes to Windows programming because I use Linux. Any contributions you make will be greatly appreciated.
+
 # PSMove-DSU
 
 A cross-platform DSU (DualShock UDP) / Cemuhook server for PlayStation Move controllers, enabling motion controls in games and emulators that support the DSU protocol.
