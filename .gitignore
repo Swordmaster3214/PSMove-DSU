@@ -39,4 +39,7 @@
 
 # debug information files
 *.dwo
+
+# custom directories
 test/**
+build/**
