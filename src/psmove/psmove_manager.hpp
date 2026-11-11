@@ -102,8 +102,14 @@ private:
     void integrate_pending_controllers();
     void publish_sample(int slot, const MoveSample& s);
 
+    void remove_controller(int slot, const std::string& reason);
+    int choose_slot_for(const std::string& serial);
+
     PSMove* controllers_[Constants::MAX_CONTROLLERS];
     bool has_data_[Constants::MAX_CONTROLLERS];
+    // Serial of the last controller in each slot, so a controller that drops out
+    // and comes back gets its old slot (player) again. Guarded by mtx_.
+    std::string last_serial_[Constants::MAX_CONTROLLERS];
 
     // OPTIMIZATION: Lock-free double buffering for sample data
     MoveSample samples_[Constants::MAX_CONTROLLERS][2];  // Double buffer per controller
@@ -139,6 +145,7 @@ private:
         std::atomic<uint64_t> connected_since_us{0};
         std::atomic<uint64_t> identify_until_us{0};
         bool identify_applied = false;  // Polling thread only
+        uint64_t last_report_us = 0;    // Polling thread only: last report (or integration) time
     };
     SlotStats stats_[Constants::MAX_CONTROLLERS];
 

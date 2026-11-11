@@ -28,6 +28,12 @@ namespace Constants {
     // Reading until the queue is empty keeps input from lagging behind.
     constexpr int MAX_REPORTS_PER_POLL = 64;
 
+    // A PS Move streams reports continuously (~60-100/s) even when idle. If one
+    // stays silent this long it was turned off or went out of range: free its
+    // slot so it's picked up again when it reconnects. (PSMoveAPI doesn't report
+    // read errors, so silence is the only reliable signal on every platform.)
+    constexpr int CONTROLLER_TIMEOUT_MS = 2000;
+
     // psmove_get_buttons() bitmasks, taken from PSMoveAPI's enum PSMove_Button
     // so they always match what the library reports.
     constexpr unsigned int Btn_TRIANGLE = ::Btn_TRIANGLE;

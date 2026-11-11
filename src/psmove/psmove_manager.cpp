@@ -357,22 +357,6 @@ void PSMoveManager::thread_main() {
                     continue;
                 }
 
-                // Verify controller is still valid
-                if (psmove_connection_type(controllers_[slot]) == Conn_Unknown) {
-                    Logger::error("Controller in slot " + std::to_string(slot) + " became invalid, removing");
-                    psmove_disconnect(controllers_[slot]);
-                    controllers_[slot] = nullptr;
-                    has_data_[slot] = false;
-                    latest_atomic_[slot].store(nullptr, std::memory_order_release);
-                    stats_[slot].connected = false;
-                    stats_[slot].identify_applied = false;
-                    clear_slot_info(slot);
-
-                    // Request rescan after controller loss
-                    scan_requested_.store(true);
-                    continue;
-                }
-
                 // Same clock as every other timestamp in a MoveSample (steady_clock).
                 uint64_t poll_timestamp = steady_now_us();
 
@@ -404,7 +388,20 @@ void PSMoveManager::thread_main() {
 
                 if (reports == 0) {
                     st.empty_polls.fetch_add(1, std::memory_order_relaxed);
+                    uint64_t silent_us = steady_now_us() - st.last_report_us;
+                    if (silent_us > uint64_t(Constants::CONTROLLER_TIMEOUT_MS) * 1000) {
+                        remove_controller(slot, "no data for " + std::to_string(silent_us / 1000) +
+                                                " ms (turned off or out of range)");
+                    }
                     continue;
+                }
+                st.last_report_us = steady_now_us();
+                if (!st.connected.load(std::memory_order_relaxed)) {
+                    // First report: only now is the controller really there.
+                    st.connected_since_us = st.last_report_us;
+                    st.connected = true;
+                    Logger::info("Controller " + get_serial_safe(controllers_[slot]) +
+                                 " connected in slot " + std::to_string(slot));
                 }
                 st.reports_total.fetch_add(reports, std::memory_order_relaxed);
                 store_max<uint32_t>(st.backlog_peak, uint32_t(reports));
@@ -558,21 +555,10 @@ void PSMoveManager::scan_for_controllers_async() {
             PSMove* controller = available_controllers[i];
             std::string serial = available_serials[i];
 
-            // Find target slot (skipping slots already promised to an earlier pending controller)
-            int target_slot = -1;
+            int target_slot;
             {
                 std::lock_guard<std::mutex> lk(mtx_);
-                for (int slot = 0; slot < Constants::MAX_CONTROLLERS; slot++) {
-                    if (controllers_[slot] || is_simulated_slot(slot)) continue;
-                    bool reserved = false;
-                    for (const auto& p : pending_controllers_) {
-                        if (p.target_slot == slot) reserved = true;
-                    }
-                    if (!reserved) {
-                        target_slot = slot;
-                        break;
-                    }
-                }
+                target_slot = choose_slot_for(serial);
             }
 
             if (target_slot == -1) {
@@ -631,10 +617,15 @@ void PSMoveManager::integrate_pending_controllers() {
                 stats_[slot].backlog_peak = 0;
                 stats_[slot].identify_applied = false;
                 stats_[slot].battery = -1;
-                stats_[slot].connected_since_us = steady_now_us();
-                stats_[slot].connected = true;
+                // Counted as connected from its first report (see thread_main):
+                // the OS can list a controller that's turned off, which then
+                // never sends anything and times out quietly.
+                stats_[slot].connected = false;
+                stats_[slot].last_report_us = steady_now_us();
+                last_serial_[slot] = pending.serial;
 
-                Logger::info("Integrated " + pending.serial + " -> Slot " + std::to_string(slot));
+                Logger::debug("Opened " + pending.serial + " in slot " + std::to_string(slot) +
+                              ", waiting for data");
             } else {
                 // Slot taken, disconnect
                 Logger::warn("Slot " + std::to_string(pending.target_slot) + " taken, disconnecting " + pending.serial);
@@ -644,6 +635,52 @@ void PSMoveManager::integrate_pending_controllers() {
     }
 
     pending_controllers_.clear();
+}
+
+// Called with mtx_ and pending_controllers_mutex_ held. Picks a free slot for a
+// newly found controller: the slot it had before if it's free, otherwise the
+// lowest slot no other known controller used, otherwise the lowest free slot.
+// Skips slots already promised to an earlier pending controller. -1 if full.
+int PSMoveManager::choose_slot_for(const std::string& serial) {
+    auto is_free = [&](int slot) {
+        if (controllers_[slot] || is_simulated_slot(slot)) return false;
+        for (const auto& p : pending_controllers_) {
+            if (p.target_slot == slot) return false;
+        }
+        return true;
+    };
+    for (int slot = 0; slot < Constants::MAX_CONTROLLERS; slot++) {
+        if (is_free(slot) && last_serial_[slot] == serial) return slot;
+    }
+    for (int slot = 0; slot < Constants::MAX_CONTROLLERS; slot++) {
+        if (is_free(slot) && last_serial_[slot].empty()) return slot;
+    }
+    for (int slot = 0; slot < Constants::MAX_CONTROLLERS; slot++) {
+        if (is_free(slot)) return slot;
+    }
+    return -1;
+}
+
+// Called from the polling thread with mtx_ held.
+void PSMoveManager::remove_controller(int slot, const std::string& reason) {
+    std::string serial = get_serial_safe(controllers_[slot]);
+    bool was_connected = stats_[slot].connected.load();
+    psmove_disconnect(controllers_[slot]);
+    controllers_[slot] = nullptr;
+    has_data_[slot] = false;
+    latest_atomic_[slot].store(nullptr, std::memory_order_release);
+    stats_[slot].connected = false;
+    stats_[slot].identify_applied = false;
+    clear_slot_info(slot);
+
+    if (was_connected) {
+        Logger::warn("Controller " + serial + " in slot " + std::to_string(slot) + " disconnected: " + reason +
+                     ". It will be picked up again when it reconnects.");
+    } else {
+        // Opened but never sent anything (e.g. turned off but still listed by the OS).
+        Logger::debug("Closed " + serial + " in slot " + std::to_string(slot) + ": " + reason);
+    }
+    scan_requested_.store(true);
 }
 
 void PSMoveManager::request_pair(const std::string& serial) {
