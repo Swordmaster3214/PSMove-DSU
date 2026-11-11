@@ -259,6 +259,9 @@ if(DSU_BUILD_GUI)
     )
     target_include_directories(imgui_static PUBLIC ${IMGUI_DIR} ${IMGUI_DIR}/backends)
     target_link_libraries(imgui_static PUBLIC glfw ${CMAKE_DL_LIBS})
+    # Stop glfw3.h from including <GL/gl.h>: the GLFW backend makes no GL calls
+    # and the OpenGL backend has its own loader, so no GL dev headers are needed.
+    target_compile_definitions(imgui_static PRIVATE GLFW_INCLUDE_NONE)
     # ImGui's OpenGL backend loads GL functions itself; only macOS needs the framework linked.
     if(APPLE)
         target_link_libraries(imgui_static PUBLIC "-framework OpenGL")
