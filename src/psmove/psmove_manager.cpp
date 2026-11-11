@@ -709,14 +709,17 @@ void PSMoveManager::pair_thread_main(std::string serial) {
     if (result) {
         Logger::info("Pairing succeeded for " + found_serial);
         set_status(PairStatus::State::Succeeded,
-                   "Paired " + found_serial + ". Unplug the USB cable and press the PS button. "
-                   "If it doesn't connect within a few seconds, restart Bluetooth (or your computer) and press PS again.");
+                   "Paired " + found_serial + ". Unplug the USB cable and press the PS button. The red LED will blink, "
+                   "then stay lit once connected. If it keeps blinking, charge the controller, turn Bluetooth off and on "
+                   "(or restart your computer), and press PS again.");
     } else {
         Logger::error("Pairing failed for " + found_serial);
 #if defined(_WIN32)
-        const char* hint = "Make sure Bluetooth is turned on, and try running PSMove-DSU as administrator.";
+        const char* hint = "Make sure Bluetooth is turned on, try running PSMove-DSU as administrator, and try again; "
+                           "it can take a few attempts on Windows. Third-party Bluetooth drivers (e.g. MotionInJoy) can interfere.";
 #elif defined(__APPLE__)
-        const char* hint = "Make sure Bluetooth is turned on and that PSMove-DSU is allowed to use Bluetooth.";
+        const char* hint = "Make sure Bluetooth is turned on and that PSMove-DSU is allowed to use Bluetooth. "
+                           "Pairing may need administrator rights; try running from a terminal with sudo.";
 #else
         const char* hint = "On Linux, pairing must register the controller with BlueZ, which needs root: "
                            "run once with sudo (e.g. sudo ./dsu_server_psmove --pair).";

@@ -1,4 +1,5 @@
 #include "psmove/psmove_pairing.hpp"
+#include "psmove/linux_setup.hpp"
 #include "utils/logging.hpp"
 #include "utils/platform.hpp"
 #include <psmove.h>
@@ -135,14 +136,28 @@ int PSMovePairing::run_pairing_mode() {
     std::cout << "4. Computer host address written to controller.\n";
     psmove_disconnect(usb_controller);
     
-    // Step 4: Disconnect USB and restart
+    // Step 4: Disconnect USB and connect over Bluetooth
     std::cout << "5. Disconnect the controller from your computer.\n";
-    std::cout << "6. RESTART YOUR COMPUTER for the pairing to take effect.\n";
-    std::cout << "7. After restart, power on your controller by pressing the PS button.\n\n";
-    
+    std::cout << "6. Press the PS button on the controller. The red LED will blink, then stay lit once it is\n";
+    std::cout << "   connected over Bluetooth.\n\n";
+
     std::cout << "=== Pairing Complete ===\n";
-    std::cout << "The pairing data has been written to your controller.\n";
-    std::cout << "Please restart your computer, then run the DSU server normally to use your paired controller.\n";
+    std::cout << "You only need to pair once, unless you later connect the controller to a PS3 or pair it with\n";
+    std::cout << "another PC. Then run the DSU server normally.\n\n";
+    std::cout << "If the LED keeps blinking: charge the controller over USB (low battery), turn Bluetooth off and\n";
+    std::cout << "on (or restart your computer) and press the PS button again.\n";
+#if defined(_WIN32)
+    std::cout << "Windows: pairing can take several attempts. Use the Microsoft Bluetooth stack (no MotionInJoy etc.).\n";
+#elif defined(__APPLE__)
+    std::cout << "macOS: if a PIN dialog appears, close it and run --pair again. Built-in Bluetooth supports at most\n";
+    std::cout << "2 controllers at once on macOS Sierra and later.\n";
+#else
+    std::cout << "Linux: if it pairs but won't connect, BlueZ may be rejecting it (ClassicBondedOnly).\n";
+#endif
+
+#if defined(__linux__)
+    run_linux_setup();
+#endif
 
     wait_for_keypress();
     

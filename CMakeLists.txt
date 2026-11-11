@@ -301,6 +301,7 @@ set(SOURCES
     src/dsu/dsu_protocol.cpp
     src/psmove/psmove_manager.cpp
     src/psmove/psmove_pairing.cpp
+    src/psmove/linux_setup.cpp
     src/network/udp_server.cpp
     src/utils/logging.cpp
     src/utils/signal_handler.cpp

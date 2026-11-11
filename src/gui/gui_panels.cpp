@@ -988,13 +988,16 @@ void GuiPanels::draw_emulators_tab() {
 
 void GuiPanels::draw_pairing_tab() {
     ImGui::BeginChild("pair_scroll");
-    ImGui::TextWrapped("Pairing stores this computer's Bluetooth address in the controller. "
-                       "You only need to do it once per controller and computer.");
+    ImGui::TextWrapped("Pairing stores this computer's Bluetooth address in the controller, so it connects to this "
+                       "computer when you press the PS button. You only need to do it once. If you later connect the "
+                       "controller to a PS3 or pair it with another PC, you'll need to pair it here again.");
     ImGui::Spacing();
     ImGui::TextWrapped("1. Connect the PS Move to this computer with a USB cable (it doesn't need to be switched on).");
     ImGui::TextWrapped("2. Wait for it to appear below, then click Pair.");
-    ImGui::TextWrapped("3. Unplug the cable and press the PS button. The controller connects over Bluetooth and "
-                       "shows up on the Controllers tab.");
+    ImGui::TextWrapped("3. Unplug the cable and press the PS button. The red LED blinks, then stays lit once connected "
+                       "over Bluetooth. The controller then shows up on the Controllers tab.");
+    ImGui::TextDisabled("Over USB a controller can only be paired, charged, or have its LED and rumble set. "
+                        "Motion data needs Bluetooth.");
 
     ImGui::SeparatorText("Controllers on USB");
     bool running = pair_.state == PairStatus::State::Running;
@@ -1035,17 +1038,29 @@ void GuiPanels::draw_pairing_tab() {
     }
     if (!any) ImGui::TextDisabled("None");
 
-    ImGui::SeparatorText("Platform notes");
+    ImGui::SeparatorText("Troubleshooting");
+    ImGui::TextWrapped("If the red LED keeps blinking and never stays lit, the controller isn't paired with this "
+                       "computer, or its battery is low (charge it over USB). You can also check your system's Bluetooth "
+                       "devices list for an entry called \"Motion Controller\".");
+    ImGui::Spacing();
 #if defined(_WIN32)
-    ImGui::TextWrapped("Windows: if pairing fails, make sure Bluetooth is on and try running PSMove-DSU as administrator. "
-                       "If the controller pairs but won't connect, remove it under Settings > Bluetooth & devices and pair again.");
+    ImGui::TextWrapped("Windows: pairing can take several attempts before Bluetooth connects. Make sure Bluetooth is on "
+                       "and try running PSMove-DSU as administrator. Use the Microsoft Bluetooth stack; third-party "
+                       "drivers (e.g. MotionInJoy) interfere with the PS Move. If the controller pairs but won't "
+                       "connect, remove it under Settings > Bluetooth & devices and pair again.");
 #elif defined(__APPLE__)
-    ImGui::TextWrapped("macOS: allow PSMove-DSU to use Bluetooth when asked (System Settings > Privacy & Security > Bluetooth).");
+    ImGui::TextWrapped("macOS: allow PSMove-DSU to use Bluetooth when asked (System Settings > Privacy & Security > "
+                       "Bluetooth). If a PIN dialog appears when you press the PS button, close it and pair again here. "
+                       "Pairing may ask for your password.");
+    ImGui::TextWrapped("The built-in Bluetooth adapter supports at most 2 Move controllers at once on macOS Sierra and "
+                       "later. For more, use an external Bluetooth adapter.");
 #else
-    ImGui::TextWrapped("Linux: pairing registers the controller with BlueZ, which needs root. If pairing fails, close this "
-                       "window and run once from a terminal:  sudo ./<this program> --pair");
-    ImGui::TextWrapped("If a USB-connected controller isn't listed, your user may not have access to hidraw devices "
-                       "(add a udev rule or run as root).");
+    ImGui::TextWrapped("Linux: pairing registers the controller with BlueZ, which needs root. If pairing fails, close "
+                       "this window and run once from a terminal:  sudo ./<this program> --pair");
+    ImGui::TextWrapped("To use controllers without root, or if one pairs but won't connect (BlueZ may reject unbonded "
+                       "input devices), run once from a terminal:  sudo ./<this program> --linux-setup  "
+                       "It asks before installing udev rules and before changing ClassicBondedOnly in "
+                       "/etc/bluetooth/input.conf (which weakens a Bluetooth security fix).");
 #endif
     ImGui::EndChild();
 }

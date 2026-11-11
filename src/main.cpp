@@ -4,6 +4,7 @@
 #include "utils/logging.hpp"
 #include "utils/signal_handler.hpp"
 #include "psmove/psmove_pairing.hpp"
+#include "psmove/linux_setup.hpp"
 #include "dsu/dsu_server.hpp"
 #ifdef DSU_WITH_GUI
 #include "gui/gui_app.hpp"
@@ -19,6 +20,7 @@ void print_usage(const char* exe) {
         "\n"
         "  --headless          Run without the GUI (console only)\n"
         "  --pair              Pair a USB-connected controller from the console\n"
+        "  --linux-setup       Linux: install udev rules / BlueZ setting (needs root)\n"
         "  --verbose           Detailed logs and latency diagnostics\n"
         "  --config <path>     Settings file (default: " << ConfigFile::default_path() << ")\n"
         "  --map <p> <y> <r>   Gyro source axis (0=X 1=Y 2=Z) for pitch, yaw, roll\n"
@@ -48,6 +50,7 @@ int main(int argc, char** argv) {
         std::cerr << "[WARN] " << config_error << " - using default settings\n";
     }
 
+    bool linux_setup_only = false;
     // Parse command line arguments
     for (int i = 1; i < argc; i++) {
         if (std::strcmp(argv[i], "--verbose") == 0) {
@@ -55,6 +58,8 @@ int main(int argc, char** argv) {
             Logger::set_verbose(true);
         } else if (std::strcmp(argv[i], "--pair") == 0) {
             config.pair_mode = true;
+        } else if (std::strcmp(argv[i], "--linux-setup") == 0) {
+            linux_setup_only = true;
         } else if (std::strcmp(argv[i], "--headless") == 0 || std::strcmp(argv[i], "--no-gui") == 0) {
             config.headless = true;
         } else if (std::strcmp(argv[i], "--config") == 0 && i + 1 < argc) {
@@ -80,6 +85,8 @@ int main(int argc, char** argv) {
 
     // Initialize logging
     Logger::initialize(config.verbose);
+
+    if (linux_setup_only) return run_linux_setup();
 
     // Handle pairing mode
     if (config.pair_mode) {

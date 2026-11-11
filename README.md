@@ -110,7 +110,13 @@ Connect the controller with a USB cable, open the **Pairing** tab and click **Pa
 ```bash
 ./dsu_server_psmove --pair
 ```
-On Linux, pairing needs root (it registers the controller with BlueZ), so run `sudo ./dsu_server_psmove --pair` once.
+Then unplug the cable and press the PS button. The red LED blinks, then stays lit once the controller is connected over Bluetooth. You only need to pair once per controller and computer; pair again if you connect it to a PS3 or another PC. Over USB, controllers can be paired, charged, and have LED/rumble set, but sensor data is only available over Bluetooth.
+
+**Troubleshooting**
+- **LED keeps blinking:** the controller isn't paired with this computer, or the battery is low. Charge it over USB. Your system's Bluetooth device list should show a "Motion Controller" entry.
+- **Windows:** pairing may take several attempts. Use the Microsoft Bluetooth stack and remove third-party drivers such as MotionInJoy. May need to run as administrator.
+- **macOS:** if a PIN dialog appears when you press PS, close it and pair again. Since macOS Sierra the built-in adapter supports at most 2 controllers at once; use an external adapter for more.
+- **Linux:** pairing needs root (it registers the controller with BlueZ), so run `sudo ./dsu_server_psmove --pair` once. To use controllers without root, or if the controller pairs but won't connect (many distros' BlueZ rejects unbonded input devices), run `sudo ./dsu_server_psmove --linux-setup` (also offered at the end of `--pair` when run as root). It asks before installing the udev rules (built into the binary) and, separately, before setting `ClassicBondedOnly=false` in `/etc/bluetooth/input.conf`, which partially undoes a [Bluetooth security fix](https://github.com/advisories/GHSA-qjcj-xg77-6c32); it defaults to no and backs the file up first.
 
 ## Building from Source
 
