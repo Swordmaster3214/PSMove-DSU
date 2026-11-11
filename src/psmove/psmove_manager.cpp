@@ -119,6 +119,12 @@ void PSMoveManager::stop() {
     std::lock_guard<std::mutex> lk(mtx_);
     for (int i = 0; i < Constants::MAX_CONTROLLERS; i++) {
         if (controllers_[i]) {
+            // Don't leave a controller rumbling or lit (best effort: may be rate-limited).
+            if (stats_[i].rumble_applied || stats_[i].identify_applied) {
+                psmove_set_leds(controllers_[i], 0, 0, 0);
+                psmove_set_rumble(controllers_[i], 0);
+                psmove_update_leds(controllers_[i]);
+            }
             psmove_disconnect(controllers_[i]);
             controllers_[i] = nullptr;
         }
@@ -203,6 +209,7 @@ std::array<ControllerStatus, Constants::MAX_CONTROLLERS> PSMoveManager::get_stat
         st.backlog_peak = reset_peaks ? s.backlog_peak.exchange(0) : s.backlog_peak.load();
         st.connected_since_us = s.connected_since_us.load();
         st.identifying = now < s.identify_until_us.load();
+        st.rumble = wanted_rumble(slot, now);
 
         MoveSample* current = latest_atomic_[slot].load(std::memory_order_acquire);
         if (current && st.connected) {
@@ -252,24 +259,39 @@ void PSMoveManager::clear_slot_info(int slot) {
     info_[slot] = SlotInfo{};
 }
 
-// Called from the polling thread with mtx_ held. Only writes to the device when
-// the wanted state changes, so it costs nothing in the normal case.
-void PSMoveManager::update_identify(int slot, uint64_t now_us) {
+void PSMoveManager::set_rumble(int slot, uint8_t strength) {
+    if (slot < 0 || slot >= Constants::MAX_CONTROLLERS) return;
     SlotStats& s = stats_[slot];
-    bool want = now_us < s.identify_until_us.load(std::memory_order_relaxed);
-    if (want == s.identify_applied) return;
+    s.rumble_until_us = steady_now_us() + uint64_t(Constants::RUMBLE_TIMEOUT_MS) * 1000;
+    if (s.rumble.exchange(strength) != strength) {
+        Logger::debug("Rumble slot " + std::to_string(slot) + ": " + std::to_string(strength));
+    }
+}
+
+int PSMoveManager::wanted_rumble(int slot, uint64_t now_us) const {
+    const SlotStats& s = stats_[slot];
+    return now_us < s.rumble_until_us.load(std::memory_order_relaxed) ? s.rumble.load(std::memory_order_relaxed) : 0;
+}
+
+// Called from the polling thread with mtx_ held: drives the LED (Identify) and
+// the motor (Identify or emulator rumble). Only writes to the device when the
+// wanted state changes, or every few seconds while something is on, because
+// the controller turns its LED and motor off by itself if not refreshed.
+void PSMoveManager::update_outputs(int slot, uint64_t now_us) {
+    SlotStats& s = stats_[slot];
+    bool identify = now_us < s.identify_until_us.load(std::memory_order_relaxed);
+    int rumble = identify ? 160 : wanted_rumble(slot, now_us);
+    if (identify == s.identify_applied && rumble == s.rumble_applied && !identify && rumble == 0) return;
 
     PSMove* c = controllers_[slot];
-    if (want) {
-        psmove_set_leds(c, 255, 255, 255);
-        psmove_set_rumble(c, 160);
-    } else {
-        psmove_set_leds(c, 0, 0, 0);
-        psmove_set_rumble(c, 0);
-    }
-    // Update_Ignored means rate-limited; try again on the next loop.
+    unsigned char led = identify ? 255 : 0;
+    psmove_set_leds(c, led, led, led);
+    psmove_set_rumble(c, rumble);
+    // Unchanged state is re-sent only every 4 s (the keep-alive); a change is
+    // rate-limited to one per 120 ms. Update_Ignored means try again next loop.
     if (psmove_update_leds(c) == Update_Success) {
-        s.identify_applied = want;
+        s.identify_applied = identify;
+        s.rumble_applied = rumble;
     }
 }
 
@@ -384,7 +406,7 @@ void PSMoveManager::thread_main() {
 
                 SlotStats& st = stats_[slot];
                 st.polls_total.fetch_add(1, std::memory_order_relaxed);
-                update_identify(slot, steady_now_us());
+                update_outputs(slot, steady_now_us());
 
                 if (reports == 0) {
                     st.empty_polls.fetch_add(1, std::memory_order_relaxed);

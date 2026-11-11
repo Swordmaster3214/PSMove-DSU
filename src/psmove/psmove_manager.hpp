@@ -34,6 +34,7 @@ struct ControllerStatus {
     uint32_t backlog_peak = 0;       // Most reports read in one iteration since last reset
     uint64_t connected_since_us = 0;
     bool identifying = false;
+    int rumble = 0;              // Strength an emulator asked for (0-255), 0 once it expires
 };
 
 struct ManagerStatus {
@@ -77,6 +78,9 @@ public:
     // Lights the controller's LED and rumbles it briefly so you can tell which
     // physical controller is in which slot.
     void identify(int slot, int duration_ms = 1500);
+    // Rumble requested by an emulator (DSU rumble message), 0-255. Lasts until
+    // changed, or RUMBLE_TIMEOUT_MS after the last call. Identify overrides it.
+    void set_rumble(int slot, uint8_t strength);
     // Pairs the USB-connected controller with this serial ("" = first found)
     // to this computer's Bluetooth adapter. Runs in the background.
     void request_pair(const std::string& serial);
@@ -92,7 +96,8 @@ private:
     void fill_simulated_sample(int slot, uint64_t now_us);
     void set_slot_info(int slot, PSMove* controller);
     void clear_slot_info(int slot);
-    void update_identify(int slot, uint64_t now_us);
+    void update_outputs(int slot, uint64_t now_us);
+    int wanted_rumble(int slot, uint64_t now_us) const;
     void pair_thread_main(std::string serial);
 
     // NEW: Background scanning methods
@@ -144,7 +149,10 @@ private:
         std::atomic<uint32_t> backlog_peak{0};
         std::atomic<uint64_t> connected_since_us{0};
         std::atomic<uint64_t> identify_until_us{0};
-        bool identify_applied = false;  // Polling thread only
+        std::atomic<int> rumble{0};               // Requested by an emulator
+        std::atomic<uint64_t> rumble_until_us{0}; // ...and valid until
+        bool identify_applied = false;  // Polling thread only: state last sent to the device
+        int rumble_applied = 0;         // Polling thread only
         uint64_t last_report_us = 0;    // Polling thread only: last report (or integration) time
     };
     SlotStats stats_[Constants::MAX_CONTROLLERS];

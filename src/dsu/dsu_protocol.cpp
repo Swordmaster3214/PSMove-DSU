@@ -84,6 +84,15 @@ std::vector<uint8_t> DSUProtocol::make_info_response(uint32_t server_id, uint8_t
     return make_packet(server_id, Constants::MSG_INFO, payload);
 }
 
+std::vector<uint8_t> DSUProtocol::make_motor_info_response(uint32_t server_id, uint8_t slot, bool connected, int battery,
+                                                           uint64_t mac, uint8_t motor_count) {
+    std::vector<uint8_t> payload;
+    uint8_t batt_byte = (battery >= 0 && battery <= 0xFF) ? uint8_t(battery) : 0x05u;
+    put_shared_begin(payload, slot, connected ? 2 : 0, 2, 2, mac, batt_byte);
+    payload.push_back(motor_count);
+    return make_packet(server_id, Constants::MSG_MOTOR_INFO, payload);
+}
+
 void DSUProtocol::mac_bytes(uint64_t mac, uint8_t out[6]) {
     for (int i = 0; i < 6; i++) {
         out[i] = uint8_t((mac >> (8 * i)) & 0xFF);

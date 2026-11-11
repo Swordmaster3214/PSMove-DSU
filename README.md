@@ -25,7 +25,8 @@ The server translates PS Move controller input (accelerometer, gyroscope, and bu
 - **Real-time motion data**: Accelerometer and gyroscope
 - **Button support**: All PS Move controller buttons
 - **DSU/Cemuhook protocol**: Compatible with all DSU-enabled applications
-- **Automatic controller detection**: Plug and play functionality
+- **Automatic controller detection**: Plug and play functionality; controllers that are turned off are released and picked up again, in the same slot, when they reconnect
+- **Rumble**: supports the DSU rumble extension, for clients that send it (Dolphin, Cemu, Azahar and Eden currently don't)
 
 ## Quick Start
 

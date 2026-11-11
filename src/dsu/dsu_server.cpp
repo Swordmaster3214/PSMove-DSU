@@ -233,7 +233,58 @@ void DSUServer::handle_message(const uint8_t* data, size_t len, const sockaddr_i
         std::lock_guard<std::mutex> lock(subscription_mutex_);
         Client& client = find_or_add_client(from, now);
         handle_data_request(client, data, len, now);
+
+    } else if (msg_type == Constants::MSG_MOTOR_INFO) {
+        {
+            std::lock_guard<std::mutex> lock(subscription_mutex_);
+            find_or_add_client(from, now);
+        }
+        // The PS Move has one motor.
+        for (int slot : slots_in_header(data, len)) {
+            bool connected = psmove_manager_.has_controller_for_slot(slot);
+            auto response = DSUProtocol::make_motor_info_response(
+                server_id_, uint8_t(slot), connected, psmove_manager_.get_battery_level_for_slot(slot),
+                slot_mac(slot), connected ? 1 : 0);
+            udp_server_.send_to(response, from);
+        }
+
+    } else if (msg_type == Constants::MSG_RUMBLE) {
+        // Header, then motor id and strength (0-255).
+        if (len < 30) return;
+        {
+            std::lock_guard<std::mutex> lock(subscription_mutex_);
+            find_or_add_client(from, now);
+        }
+        uint8_t motor = data[28];
+        uint8_t strength = data[29];
+        if (motor != 0) return;
+        for (int slot : slots_in_header(data, len)) {
+            if (psmove_manager_.has_controller_for_slot(slot)) psmove_manager_.set_rumble(slot, strength);
+        }
     }
+}
+
+std::vector<int> DSUServer::slots_in_header(const uint8_t* data, size_t len) const {
+    std::vector<int> out;
+    uint8_t flags = len > 20 ? data[20] : 0;
+    bool want[Constants::MAX_CONTROLLERS] = {};
+    if (flags == 0) {
+        for (bool& w : want) w = true;
+    }
+    if ((flags & 0x01) && len > 21 && data[21] < Constants::MAX_CONTROLLERS) {
+        want[data[21]] = true;
+    }
+    if ((flags & 0x02) && len >= 28) {
+        for (int slot = 0; slot < Constants::MAX_CONTROLLERS; slot++) {
+            uint8_t ours[6];
+            DSUProtocol::mac_bytes(slot_mac(slot), ours);
+            if (std::memcmp(ours, data + 22, 6) == 0) want[slot] = true;
+        }
+    }
+    for (int slot = 0; slot < Constants::MAX_CONTROLLERS; slot++) {
+        if (want[slot]) out.push_back(slot);
+    }
+    return out;
 }
 
 // Payload: flags (1 = by slot, 2 = by MAC, 0 = everything), slot, 6-byte MAC.

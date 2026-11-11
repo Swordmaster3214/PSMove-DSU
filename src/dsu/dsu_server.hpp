@@ -78,6 +78,9 @@ private:
 
     void handle_message(const uint8_t* data, size_t len, const sockaddr_in& from);
     void handle_data_request(Client& client, const uint8_t* data, size_t len, Clock::time_point now);
+    // Slots named by the 8-byte controller header (flags, slot, MAC) that DATA
+    // and the rumble messages share. Flags 0 = every slot.
+    std::vector<int> slots_in_header(const uint8_t* data, size_t len) const;
     Client& find_or_add_client(const sockaddr_in& from, Clock::time_point now);
     void send_thread_main();
     void status_thread_main();

@@ -22,6 +22,8 @@ import zlib
 SERVER = ("127.0.0.1", 26760)
 MSG_INFO = 0x100001
 MSG_DATA = 0x100002
+MSG_MOTOR_INFO = 0x110001
+MSG_RUMBLE = 0x110002
 
 failures = 0
 
@@ -97,6 +99,22 @@ def main():
     s.sendto(packet(MSG_INFO, struct.pack("<i", 1) + bytes([3])), SERVER)
     r = receive(s, 0.3)
     expect(len(r) == 1 and r[0][20] == 3, f"INFO for slot 3 only: {len(r)} reply(ies)")
+
+    # Rumble extension: one motor per connected controller, none for empty slots.
+    s.sendto(packet(MSG_MOTOR_INFO, bytes([0, 0]) + b"\0" * 6), SERVER)
+    r = receive(s, 0.3)
+    motors = {d[20]: d[31] for d in r
+              if struct.unpack("<I", d[16:20])[0] == MSG_MOTOR_INFO and len(d) >= 32}
+    expect(motors == {0: 0, 1: 0, 2: 1, 3: 1}, f"motor info for all slots: {motors}")
+
+    s.sendto(packet(MSG_RUMBLE, bytes([1, 3]) + b"\0" * 6 + bytes([0, 200])), SERVER)  # slot 3, motor 0
+    s.sendto(packet(MSG_RUMBLE, bytes([1, 9]) + b"\0" * 6 + bytes([0, 200])), SERVER)  # no such slot
+    s.sendto(packet(MSG_RUMBLE, bytes([1, 3])), SERVER)                                # truncated
+    s.sendto(packet(MSG_MOTOR_INFO, bytes([1, 3]) + b"\0" * 6), SERVER)
+    r = [d for d in receive(s, 0.3) if struct.unpack("<I", d[16:20])[0] == MSG_MOTOR_INFO]
+    expect(len(r) == 1 and r[0][20] == 3 and r[0][31] == 1,
+           f"still answering after rumble requests ({len(r)} motor info reply(ies) for slot 3)")
+    s.sendto(packet(MSG_RUMBLE, bytes([1, 3]) + b"\0" * 6 + bytes([0, 0])), SERVER)  # stop
 
     # Like Dolphin: one socket per controller, each registered by slot.
     by_slot2, by_slot3, everything, by_mac = new_socket(), new_socket(), new_socket(), new_socket()

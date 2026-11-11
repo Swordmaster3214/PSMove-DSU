@@ -59,7 +59,7 @@ The executable will be created as:
 
 ### Testing Without Hardware
 
-`test/dsu_protocol_check.py` (Python 3, standard library only) checks that the server answers DSU requests correctly, including per-slot subscriptions and the 5 second subscription timeout:
+`test/dsu_protocol_check.py` (Python 3, standard library only) checks that the server answers DSU requests correctly, including per-slot subscriptions, the 5 second subscription timeout and the rumble messages:
 
 ```bash
 ./build/dsu_server_psmove_linux_x64 --headless --simulate 2 &

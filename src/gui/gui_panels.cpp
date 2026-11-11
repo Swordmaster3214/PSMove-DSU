@@ -454,6 +454,11 @@ void GuiPanels::draw_controller_card(const ControllerStatus& st) {
     ImGui::TextDisabled("%s  |  %s", st.model.c_str(), st.connection.c_str());
     ImGui::SameLine(0, 16 * s);
     status_chip("Battery " + battery_text(st.battery), battery_level(st.battery));
+    if (st.rumble > 0) {
+        ImGui::SameLine();
+        status_chip(fmt("Rumble %d%%", (st.rumble * 100 + 127) / 255), Level::Warn);
+        ImGui::SetItemTooltip("An emulator is making this controller vibrate.");
+    }
 
     float id_w = ImGui::CalcTextSize("Identify").x + ImGui::GetStyle().FramePadding.x * 2;
     ImGui::SameLine(ImGui::GetContentRegionMax().x - id_w);

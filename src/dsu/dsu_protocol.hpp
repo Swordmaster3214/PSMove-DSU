@@ -45,6 +45,8 @@ public:
 
     static std::vector<uint8_t> make_protocol_response(uint32_t server_id);
     static std::vector<uint8_t> make_info_response(uint32_t server_id, uint8_t slot, bool connected, int battery, uint64_t mac);
+    static std::vector<uint8_t> make_motor_info_response(uint32_t server_id, uint8_t slot, bool connected, int battery,
+                                                         uint64_t mac, uint8_t motor_count);
     static std::vector<uint8_t> make_data_packet(uint32_t server_id, uint8_t slot, const MoveSample& sample,
                                                   uint32_t packet_no, int battery, uint64_t mac, const Config& config);
 

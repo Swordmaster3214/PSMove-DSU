@@ -9,6 +9,12 @@ namespace Constants {
     constexpr uint32_t MSG_PROTOCOL_VER = 0x100000;
     constexpr uint32_t MSG_INFO = 0x100001;
     constexpr uint32_t MSG_DATA = 0x100002;
+    // Unofficial rumble extension (also implemented by DS4Windows and BetterJoy).
+    constexpr uint32_t MSG_MOTOR_INFO = 0x110001;  // How many motors a controller has
+    constexpr uint32_t MSG_RUMBLE = 0x110002;      // Set a motor's strength
+    // Stop rumbling if the client hasn't re-sent the strength for this long, so a
+    // client that disconnects abruptly can't leave a controller vibrating.
+    constexpr int RUMBLE_TIMEOUT_MS = 5000;
 
     // A DATA subscription expires if the client doesn't renew it within this time
     // (the DSU protocol suggests ~5 seconds; clients re-request roughly every second).
