@@ -356,7 +356,7 @@ void DSUServer::send_thread_main() {
 
                 // OPTIMIZATION: Set send timestamp here for latency measurement
                 sample.send_timestamp_us = std::chrono::duration_cast<std::chrono::microseconds>(
-                    std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+                    std::chrono::steady_clock::now().time_since_epoch()).count();
 
                 // Monitor latency
                 if (Logger::is_verbose() && sample.poll_timestamp_us > 0) {

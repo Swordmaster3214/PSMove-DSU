@@ -373,8 +373,8 @@ void PSMoveManager::thread_main() {
                     continue;
                 }
 
-                uint64_t poll_timestamp = std::chrono::duration_cast<std::chrono::microseconds>(
-                    std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+                // Same clock as every other timestamp in a MoveSample (steady_clock).
+                uint64_t poll_timestamp = steady_now_us();
 
                 // Read every report that has queued up since the last loop and
                 // keep only the newest. Reading just one per loop lets a backlog
