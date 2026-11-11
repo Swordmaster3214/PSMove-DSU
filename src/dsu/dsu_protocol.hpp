@@ -2,6 +2,8 @@
 #include <vector>
 #include <cstdint>
 
+struct Config;
+
 struct MoveSample {
     float accel_x = 0, accel_y = 0, accel_z = 1.0f;
     float gyro_x = 0, gyro_y = 0, gyro_z = 0;
@@ -10,7 +12,7 @@ struct MoveSample {
     uint64_t send_timestamp_us = 0;    // NEW: When data was sent over network
     unsigned int buttons = 0;
     unsigned char trigger = 0;
-    
+
     // NEW: Get end-to-end latency
     uint64_t get_latency_us() const {
         if (send_timestamp_us > poll_timestamp_us) {
@@ -20,15 +22,41 @@ struct MoveSample {
     }
 };
 
+// Button section of a DSU data packet (payload offsets 16..19 and 24..35).
+struct DsuButtonState {
+    uint8_t buttons1 = 0;   // Share, L3, R3, Options, D-pad (bit 0..7)
+    uint8_t buttons2 = 0;   // L2, R2, L1, R1, Triangle, Circle, Cross, Square (bit 0..7)
+    uint8_t home = 0;
+    uint8_t touch = 0;
+    // Analog bytes in packet order: D-pad L, D, R, U, Triangle, Circle, Cross, Square, R1, L1, R2, L2
+    uint8_t analog[12] = {};
+};
+
+// Motion section of a DSU data packet after axis mapping.
+struct DsuMotion {
+    float accel[3] = {0, 0, 0};  // X, Y, Z in g
+    float gyro[3] = {0, 0, 0};   // Pitch, Yaw, Roll in deg/s
+};
+
 class DSUProtocol {
 public:
     static uint32_t crc32_le(const uint8_t* data, size_t len);
     static std::vector<uint8_t> make_packet(uint32_t server_id, uint32_t msg_type, const std::vector<uint8_t>& payload);
-    
+
     static std::vector<uint8_t> make_protocol_response(uint32_t server_id);
     static std::vector<uint8_t> make_info_response(uint32_t server_id, uint8_t slot, bool connected, int battery, uint64_t mac);
-    static std::vector<uint8_t> make_data_packet(uint32_t server_id, uint8_t slot, const MoveSample& sample, 
-                                                  uint32_t packet_no, int battery, uint64_t mac, const struct Config& config);
+    static std::vector<uint8_t> make_data_packet(uint32_t server_id, uint8_t slot, const MoveSample& sample,
+                                                  uint32_t packet_no, int battery, uint64_t mac, const Config& config);
+
+    // Applies the button mapping in `config` to a sample.
+    static DsuButtonState encode_buttons(const MoveSample& sample, const Config& config);
+    // Applies the axis mapping in `config` to a sample.
+    static DsuMotion map_motion(const MoveSample& sample, const Config& config);
+    // True if `button` is active in an encoded state.
+    static bool is_pressed(const DsuButtonState& state, int dsu_button);
+
+    // The 6 MAC bytes exactly as they appear in a packet for `mac`.
+    static void mac_bytes(uint64_t mac, uint8_t out[6]);
 
 private:
     static void put_u16(std::vector<uint8_t>& b, uint16_t v);

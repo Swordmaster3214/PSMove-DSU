@@ -30,21 +30,32 @@ bool UDPServer::start() {
 #ifdef _WIN32
     sock_ = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (sock_ == INVALID_SOCKET) {
-        Logger::error("socket() failed: " + std::to_string(WSAGetLastError()));
+        last_error_ = "socket() failed: " + std::to_string(WSAGetLastError());
+        Logger::error(last_error_);
         return false;
     }
 #else
     sock_ = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (sock_ < 0) {
-        Logger::error("socket() failed");
+        last_error_ = std::string("socket() failed: ") + strerror(errno);
+        Logger::error(last_error_);
         return false;
     }
 #endif
     
     // OPTIMIZATION: Configure socket for low latency
-    int opt = 1;
+    // Deliberately no SO_REUSEADDR: for UDP it lets a second DSU server
+    // (another copy of this program, DS4Windows, BetterJoy...) bind the same
+    // port silently, and then the emulator only talks to one of them. We want
+    // bind() to fail so the conflict is visible.
 #ifdef _WIN32
-    setsockopt(sock_, SOL_SOCKET, SO_REUSEADDR, (char*)&opt, sizeof(opt));
+    int opt = 1;
+    setsockopt(sock_, SOL_SOCKET, SO_EXCLUSIVEADDRUSE, (char*)&opt, sizeof(opt));
+
+    // Non-blocking, like the POSIX path: receive_loop() handles WSAEWOULDBLOCK,
+    // and stop() can't hang waiting for a packet that never comes.
+    u_long non_blocking = 1;
+    ioctlsocket(sock_, FIONBIO, &non_blocking);
     
     // Increase send buffer size
     int sendbuf = 65536;
@@ -53,8 +64,6 @@ bool UDPServer::start() {
     }
     
 #else
-    setsockopt(sock_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-    
     // Increase send buffer size
     int sendbuf = 65536;
     if (setsockopt(sock_, SOL_SOCKET, SO_SNDBUF, &sendbuf, sizeof(sendbuf)) != 0) {
@@ -84,15 +93,29 @@ bool UDPServer::start() {
     bind_addr.sin_addr.s_addr = INADDR_ANY;
     
     if (bind(sock_, (sockaddr*)&bind_addr, sizeof(bind_addr)) < 0) {
+        std::string port_str = std::to_string(port_);
 #ifdef _WIN32
-        Logger::error("bind() failed: " + std::to_string(WSAGetLastError()));
-        CLOSE_SOCKET(sock_);
+        int err = WSAGetLastError();
+        bool in_use = (err == WSAEADDRINUSE || err == WSAEACCES);
+        std::string detail = "error " + std::to_string(err);
 #else
-        Logger::error("bind() failed");
-        CLOSE_SOCKET(sock_);
+        int err = errno;
+        bool in_use = (err == EADDRINUSE);
+        std::string detail = strerror(err);
 #endif
+        if (in_use) {
+            last_error_ = "UDP port " + port_str + " is already in use. Another DSU server "
+                          "(another copy of PSMove-DSU, DS4Windows, BetterJoy, ...) is probably running. "
+                          "Close it and retry.";
+        } else {
+            last_error_ = "Could not open UDP port " + port_str + " (" + detail + ").";
+        }
+        Logger::error("bind() failed: " + last_error_);
+        CLOSE_SOCKET(sock_);
+        sock_ = -1;
         return false;
     }
+    last_error_.clear();
     
     running_ = true;
     receive_thread_ = std::thread(&UDPServer::receive_loop, this);

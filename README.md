@@ -21,6 +21,7 @@ The server translates PS Move controller input (accelerometer, gyroscope, and bu
 ## Features
 
 - **Cross-platform support**: Windows, macOS, and Linux
+- **Built-in GUI**: live controller input, button and motion-axis remapping, pairing, emulator connection status, and a one-click diagnostics report for bug reports
 - **Real-time motion data**: Accelerometer and gyroscope
 - **Button support**: All PS Move controller buttons
 - **DSU/Cemuhook protocol**: Compatible with all DSU-enabled applications
@@ -37,7 +38,7 @@ The server translates PS Move controller input (accelerometer, gyroscope, and bu
 
 2. **Connect your PS Move controller** via Bluetooth
 
-3. **Run the executable**:
+3. **Run the executable** (a window opens; add `--headless` to run in the console only):
    #### Windows
    ```bash
    ./dsu_server_psmove_windows_win64.exe
@@ -52,7 +53,41 @@ The server translates PS Move controller input (accelerometer, gyroscope, and bu
 
 5. **Configure your emulator** to connect to `127.0.0.1:26760` (default DSU port)
 
+### The GUI
+
+| Tab | What it's for |
+| --- | --- |
+| **Controllers** | Every connected controller with live buttons, trigger, gyro and accelerometer graphs, battery, report rate, data age and queued-report count. **Identify** lights up and rumbles a controller so you can tell which slot it's in. |
+| **Button mapping** | Choose which emulator button each PS Move button sends, and see live what the emulator receives (digital bits and analog values). |
+| **Motion axes** | Choose which PS Move sensor axis feeds the emulator's pitch/yaw/roll and accelerometer X/Y/Z, and invert any of them, with live bars to check the result. |
+| **Emulators** | Every DSU client that has contacted the server, which controller slots it is receiving, and how many packets per second it gets. Shows a checklist when no emulator has connected. |
+| **Pairing** | Pair a USB-connected controller with one click. |
+| **Log** | The server log with filters. Turn on verbose logging without restarting. |
+
+**Copy diagnostics** (top right) copies the current status and recent log in a format ready to paste into a GitHub issue. Please include it when reporting a bug.
+
+Mapping changes take effect immediately and are saved to a settings file:
+- Windows: `%APPDATA%\PSMove-DSU\config.ini`
+- macOS: `~/Library/Application Support/PSMove-DSU/config.ini`
+- Linux: `~/.config/psmove-dsu/config.ini`
+
+The headless mode uses the same file, so you can set things up in the GUI and then run with `--headless`.
+
+### Command-line options
+
+| Option | Description |
+| --- | --- |
+| `--headless` | Run without the GUI (console only). Also used automatically when no display is available. |
+| `--pair` | Pair a USB-connected controller from the console |
+| `--verbose` | Detailed logs and latency diagnostics |
+| `--config <path>` | Use a different settings file |
+| `--map <p> <y> <r>` | Gyro source axis (0=X, 1=Y, 2=Z) for pitch, yaw and roll (overrides the settings file) |
+| `--flip <p> <y> <r>` | Invert gyro pitch, yaw, roll (0/1) (overrides the settings file) |
+| `--simulate <n>` | Add *n* virtual controllers, for testing an emulator setup without hardware |
+
 ### Button Mappings
+
+Default mapping (change it on the GUI's **Button mapping** tab):
 
 Button | Mapping
 --- | ---
@@ -70,9 +105,12 @@ PS | PS
 
 #### Bluetooth Pairing
 **Note:** You will not need to do the following if you have already paired your controller with your computer using [PSMoveAPI](https://github.com/thp/psmoveapi)
+
+Connect the controller with a USB cable, open the **Pairing** tab and click **Pair**. Or, from the console:
 ```bash
 ./dsu_server_psmove --pair
 ```
+On Linux, pairing needs root (it registers the controller with BlueZ), so run `sudo ./dsu_server_psmove --pair` once.
 
 ## Building from Source
 
@@ -96,6 +134,9 @@ dsu_server_psmove/
 │   ├── network/
 │   │   ├── udp_server.hpp         # UDP networking interface
 │   │   └── udp_server.cpp         # UDP networking implementation
+│   ├── gui/
+│   │   ├── gui_app.hpp/.cpp       # Window, fonts and render loop (Dear ImGui + GLFW)
+│   │   └── gui_panels.hpp/.cpp    # The GUI tabs
 │   ├── utils/
 │   │   ├── logging.hpp            # Logging utilities
 │   │   ├── logging.cpp            # Logging implementation
@@ -104,19 +145,24 @@ dsu_server_psmove/
 │   │   └── signal_handler.cpp     # Signal handling implementation
 │   └── config/
 │       ├── constants.hpp          # Global constants
-│       └── config.hpp             # Configuration management
+│       ├── config.hpp             # Configuration management
+│       ├── config_file.hpp/.cpp   # Settings file load/save
+│       └── mapping.hpp/.cpp       # Button and axis mapping definitions
 ```
 ### Prerequisites
 
 #### All Platforms
 - **CMake** 3.18 or higher
 - **C++ compiler** with C++17 support
-- **Internet access on the first configure** - CMake downloads the PSMoveAPI 4.0.12 sources (pinned and hash-verified) and compiles them statically into the server. You do *not* need to install PSMoveAPI yourself.
+- **Internet access on the first configure** - CMake downloads the PSMoveAPI 4.0.12, Dear ImGui 1.91.9b and GLFW 3.4 sources (pinned and hash-verified) and compiles them statically into the server. You do *not* need to install any of them yourself.
 
 #### Linux
 ```bash
-sudo apt-get install libbluetooth-dev libdbus-1-dev libudev-dev pkg-config
+sudo apt-get install libbluetooth-dev libdbus-1-dev libudev-dev pkg-config \
+    libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxext-dev \
+    libwayland-dev libxkbcommon-dev
 ```
+The Wayland packages are optional; without them the GUI uses X11 (XWayland). For a console-only build without any of the GUI packages, configure with `-DDSU_BUILD_GUI=OFF`.
 
 #### macOS
 - Xcode command line tools (`xcode-select --install`)
@@ -164,7 +210,9 @@ PSMoveAPI is built from source and linked statically, so end users of a release 
 
 ```bash
 cmake -DFETCHCONTENT_SOURCE_DIR_PSMOVEAPI=/path/to/psmoveapi-4.0.12 \
-      -DFETCHCONTENT_SOURCE_DIR_HIDAPI=/path/to/hidapi ..
+      -DFETCHCONTENT_SOURCE_DIR_HIDAPI=/path/to/hidapi \
+      -DFETCHCONTENT_SOURCE_DIR_IMGUI=/path/to/imgui-1.91.9b \
+      -DFETCHCONTENT_SOURCE_DIR_GLFW=/path/to/glfw-3.4 ..
 ```
 
 (`hidapi` here is the [thp/hidapi](https://github.com/thp/hidapi) fork at commit `38681c7`, the revision PSMoveAPI 4.0.12 pins as a submodule.)
@@ -191,13 +239,16 @@ The server runs on `127.0.0.1:26760` by default, which is the standard DSU port.
 
 ## Troubleshooting
 
+Start with the GUI: the status line at the top shows whether the server is listening, how many controllers are connected and whether any emulator is receiving data, and each tab explains what to check when something is missing. When opening an issue, click **Copy diagnostics** and paste the result.
+
 ### Controller Not Detected
 - Ensure the PS Move controller is properly paired
 - On Linux, you may need to run with `sudo` for USB access permissions
 - Check that no other applications are using the controller
 
 ### Connection Issues
-- Verify the server is running and listening on port 26760
+- Verify the server is running and listening on port 26760 (if another DSU server such as DS4Windows or BetterJoy already uses the port, PSMove-DSU now reports it instead of starting silently)
+- The **Emulators** tab lists every emulator connection and which controller slots it receives. If it is empty, the emulator isn't reaching the server.
 - Check firewall settings if connecting from another machine
 - Ensure the emulator is configured with the correct IP and port
 

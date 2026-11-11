@@ -4,6 +4,7 @@
 #include <functional>
 #include <atomic>
 #include <thread>
+#include <string>
 
 class UDPServer {
 public:
@@ -22,6 +23,9 @@ public:
     void set_message_handler(MessageHandler handler);
     
     bool is_running() const { return running_.load(); }
+    int port() const { return port_; }
+    // Reason the last start() failed (empty if it succeeded).
+    const std::string& last_error() const { return last_error_; }
     
 private:
     void receive_loop();
@@ -31,4 +35,5 @@ private:
     std::atomic<bool> running_;
     MessageHandler message_handler_;
     std::thread receive_thread_;
+    std::string last_error_;
 };

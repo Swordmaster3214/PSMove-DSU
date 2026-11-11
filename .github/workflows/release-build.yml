@@ -23,14 +23,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # PSMoveAPI is downloaded and compiled statically into the executable by
-      # CMake itself (see CMakeLists.txt), so no psmoveapi install step is needed.
+      # PSMoveAPI, Dear ImGui and GLFW are downloaded and compiled statically into
+      # the executable by CMake itself (see CMakeLists.txt), so no install step is
+      # needed for them. Linux only needs the system dev headers below.
 
       - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libbluetooth-dev libdbus-1-dev libudev-dev pkg-config
+          sudo apt-get install -y libbluetooth-dev libdbus-1-dev libudev-dev pkg-config \
+            libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxext-dev \
+            libwayland-dev libxkbcommon-dev
 
       - name: Configure with CMake (Windows)
         if: runner.os == 'Windows'

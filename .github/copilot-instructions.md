@@ -5,11 +5,13 @@ Keep this file short and actionable. Focus on patterns and commands that help an
 ## Big picture
 - What this repo is: a low-latency DSU server that exposes PlayStation Move controllers over UDP (DSU protocol). It polls physical controllers using psmoveapi and multicasts DSU-formatted packets to subscribed clients.
 - Major components:
-  - `src/main.cpp` — CLI entry (flags: `--verbose`, `--pair`, `--map <p> <y> <r>`, `--flip <p> <y> <r>`).
+  - `src/main.cpp` — CLI entry (flags: `--headless`, `--verbose`, `--pair`, `--config <path>`, `--simulate <n>`, `--map <p> <y> <r>`, `--flip <p> <y> <r>`). Opens the GUI unless `--headless` or no display.
   - `src/dsu/` — DSU implementation and server: `dsu_protocol.*` (packet format, CRC), `dsu_server.*` (subscription, send loop).
   - `src/psmove/` — controller handling: `psmove_manager.*` (double-buffered samples, background scanner, polling thread), `psmove_pairing.*` (pair mode).
   - `src/network/` — `udp_server.*` (non-blocking socket, `send_to_multiple` optimization).
   - `src/utils/` — logging and signal handling helpers.
+  - `src/gui/` — Dear ImGui + GLFW GUI (`DSU_BUILD_GUI`, on by default). It reads state only through snapshot getters (`PSMoveManager::get_status`, `DSUServer::get_clients`, ...) built from atomics; never take `PSMoveManager::mtx_` from GUI code.
+  - `src/config/` — `config.hpp` (runtime-editable mapping), `config_file.*` (settings file), `mapping.*` (button/axis names).
 
 ## Key conventions & patterns (important for code changes)
 - Real-time / low-latency focus: timing constants live in `src/config/constants.hpp` (e.g., `PSMOVE_POLL_MS`, `DSU_SEND_MS`, `LATENCY_WARNING_US`). Prefer tuning these constants rather than hardcoding sleeps.
@@ -21,7 +23,8 @@ Keep this file short and actionable. Focus on patterns and commands that help an
 - Protocol details:
   - DSU magic is "DSUS" at packet start; CRC is little-endian and stored at bytes 8..11 (see `DSUProtocol::make_packet`).
   - Message types are defined in `Constants::MSG_*` and parsed in `DSUServer::handle_message`.
-  - `DSUProtocol::make_data_packet` constructs payloads (shared begin, connected, packet_no, control bytes, sticks, touch, timestamp, accel, gyro).
+  - `DSUProtocol::make_data_packet` constructs payloads (shared begin, connected, packet_no, control bytes, sticks, touch, timestamp, accel, gyro). Buttons go through `encode_buttons()` (mapping-driven, fills both digital bits and analog bytes) and motion through `map_motion()`.
+  - DATA subscriptions honor the request flags (all / slot / MAC) and expire after `SUBSCRIPTION_TIMEOUT_MS`; each client only receives the slots it registered. Dolphin relies on this (one socket per controller, no pad_id filtering).
 
 ## Build & run (exact steps)
 - Requirements: `cmake` (>=3.18), compiler with C++17. PSMoveAPI 4.0.12 is downloaded, built from source and linked statically by CMake (no manual install). On Linux you also need the dbus/bluez/udev dev packages (`libdbus-1-dev libbluetooth-dev libudev-dev`).
