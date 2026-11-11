@@ -2,13 +2,10 @@ name: macOS Test Build
 
 # Builds Intel (x86_64) and Apple Silicon (arm64) binaries for testing a branch.
 #
-# Runs automatically on every push to a branch other than main, so a feature
-# branch gets macOS builds without this file having to exist on main first
-# (GitHub only offers the "Run workflow" button for files on the default
-# branch). It can also be started by hand from the Actions tab.
-#
-# The binaries are attached to the workflow run as downloadable artifacts
-# instead of being committed back to the branch.
+# Runs on every push to a branch other than main (GitHub only offers the "Run
+# workflow" button for workflows that already exist on main), or by hand from
+# the Actions tab. Binaries are attached to the run as artifacts.
+# The checks live in .github/scripts/ci_binary.sh and are shared by all builds.
 
 on:
   push:
@@ -39,6 +36,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
       # PSMoveAPI, Dear ImGui and GLFW are downloaded and built statically by CMake.
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -46,33 +47,15 @@ jobs:
       - name: Build
         run: cmake --build build --config Release -j "$(sysctl -n hw.ncpu)"
 
-      - name: Inspect binary
+      - name: Locate executable
         id: exe
         run: |
-          EXE=$(ls build/dsu_server_psmove_macos_* | head -n 1)
-          NAME=$(basename "$EXE")
+          EXE=$(.github/scripts/ci_binary.sh locate)
           echo "path=$EXE" >> "$GITHUB_OUTPUT"
-          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "name=$(basename "$EXE")" >> "$GITHUB_OUTPUT"
 
-          echo "== $NAME"
-          file "$EXE"
-          ARCHS=$(lipo -archs "$EXE")
-          echo "Architectures: $ARCHS"
-          if [ "$ARCHS" != "${{ matrix.arch }}" ]; then
-            echo "::error::Expected ${{ matrix.arch }}, got $ARCHS"
-            exit 1
-          fi
-
-          echo "== Minimum macOS version"
-          otool -l "$EXE" | grep -A4 LC_BUILD_VERSION | grep -E "minos|sdk"
-
-          echo "== Linked libraries (must all be part of macOS)"
-          otool -L "$EXE"
-          NON_SYSTEM=$(otool -L "$EXE" | tail -n +2 | awk '{print $1}' | grep -v -E '^(/usr/lib/|/System/Library/)' || true)
-          if [ -n "$NON_SYSTEM" ]; then
-            echo "::error::Binary depends on libraries testers won't have: $NON_SYSTEM"
-            exit 1
-          fi
+      - name: Inspect binary
+        run: .github/scripts/ci_binary.sh inspect "${{ steps.exe.outputs.path }}"
 
       - name: Package
         run: |
@@ -103,16 +86,4 @@ jobs:
 
       - name: Smoke test (server + DSU protocol)
         timeout-minutes: 3
-        run: |
-          EXE="${{ steps.exe.outputs.path }}"
-          "$EXE" --help
-          "$EXE" --headless --simulate 2 --config "$RUNNER_TEMP/config.ini" > server.log 2>&1 &
-          SERVER_PID=$!
-          set +e
-          python3 test/dsu_protocol_check.py
-          RESULT=$?
-          kill -INT $SERVER_PID 2>/dev/null
-          wait $SERVER_PID
-          echo "== Server log"
-          cat server.log
-          exit $RESULT
+        run: .github/scripts/ci_binary.sh smoke "${{ steps.exe.outputs.path }}"

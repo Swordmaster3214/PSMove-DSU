@@ -13,6 +13,7 @@ jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
@@ -20,12 +21,21 @@ jobs:
           - os: macos-latest     # arm64
           - os: windows-latest
 
+    defaults:
+      run:
+        shell: bash   # Git Bash on Windows, so the shared CI script runs everywhere
+
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
       # PSMoveAPI, Dear ImGui and GLFW are downloaded and compiled statically into
       # the executable by CMake itself (see CMakeLists.txt), so no install step is
-      # needed for them. Linux only needs the system dev headers below.
+      # needed for them. Linux only needs the system dev headers below
+      # (xvfb + Mesa are for the GUI check).
 
       - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
@@ -33,7 +43,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libbluetooth-dev libdbus-1-dev libudev-dev pkg-config \
             libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxext-dev \
-            libwayland-dev libxkbcommon-dev
+            libwayland-dev libxkbcommon-dev \
+            xvfb libgl1 libglx-mesa0 libgl1-mesa-dri
 
       - name: Configure with CMake (Windows)
         if: runner.os == 'Windows'
@@ -44,91 +55,31 @@ jobs:
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
-        run: cmake --build build --config Release
+        run: cmake --build build --config Release --parallel
 
-      - name: List build directory contents (debug)
-        run: |
-          echo "Contents of build directory:"
-          ls -la build/
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            echo "Contents of build/Release directory:"
-            ls -la build/Release/ || echo "build/Release/ does not exist"
-            echo "Contents of build/Debug directory:"
-            ls -la build/Debug/ || echo "build/Debug/ does not exist"
-          fi
-        shell: bash
-
-      - name: Get executable name from CMake
-        id: cmake_info
-        run: |
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            # For Windows, we need to find the actual executable name
-            if [ -f "build/Release/"*.exe ]; then
-              EXEC_NAME=$(basename build/Release/*.exe)
-            elif [ -f "build/Debug/"*.exe ]; then
-              EXEC_NAME=$(basename build/Debug/*.exe)
-            elif [ -f "build/"*.exe ]; then
-              EXEC_NAME=$(basename build/*.exe)
-            else
-              echo "ERROR: Could not find Windows executable"
-              exit 1
-            fi
-          else
-            # For Linux/macOS, find the executable using portable commands
-            # Look for files that are executable and not libraries
-            EXEC_NAME=""
-            for file in build/*; do
-              if [ -f "$file" ] && [ -x "$file" ] && [[ ! "$file" =~ \.(so|dylib)$ ]]; then
-                EXEC_NAME=$(basename "$file")
-                break
-              fi
-            done
-            
-            if [ -z "$EXEC_NAME" ]; then
-              echo "ERROR: Could not find executable"
-              echo "Available files in build/:"
-              ls -la build/
-              exit 1
-            fi
-          fi
-          echo "executable_name=$EXEC_NAME" >> $GITHUB_OUTPUT
-          echo "Found executable: $EXEC_NAME"
-        shell: bash
-
-      - name: Find executable
+      # The same checks as the test builds (.github/scripts/ci_binary.sh), so a
+      # release can't publish a binary that fails them.
+      - name: Locate executable
         id: artifact
         run: |
+          EXE=$(.github/scripts/ci_binary.sh locate)
+          NAME=$(basename "$EXE")
+          echo "path=$EXE" >> "$GITHUB_OUTPUT"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
           mkdir -p artifacts
-          EXEC_NAME="${{ steps.cmake_info.outputs.executable_name }}"
-          
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            # Try multiple possible locations for Windows executable
-            if [ -f "build/Release/$EXEC_NAME" ]; then
-              EXEC_PATH="build/Release/$EXEC_NAME"
-            elif [ -f "build/Debug/$EXEC_NAME" ]; then
-              EXEC_PATH="build/Debug/$EXEC_NAME"
-            elif [ -f "build/$EXEC_NAME" ]; then
-              EXEC_PATH="build/$EXEC_NAME"
-            else
-              echo "ERROR: Could not find Windows executable $EXEC_NAME"
-              exit 1
-            fi
-            ARTIFACT_NAME="$EXEC_NAME"
-          elif [ "${{ runner.os }}" = "macOS" ]; then
-            EXEC_PATH="build/$EXEC_NAME"
-            ARTIFACT_NAME="$EXEC_NAME"
-          else
-            EXEC_PATH="build/$EXEC_NAME"
-            ARTIFACT_NAME="$EXEC_NAME"
-          fi
-          
-          echo "name=$ARTIFACT_NAME" >> $GITHUB_OUTPUT
-          echo "path=$EXEC_PATH" >> $GITHUB_OUTPUT
-          
-          # Copy to artifacts directory
-          cp "$EXEC_PATH" "artifacts/$ARTIFACT_NAME"
-          echo "Successfully created: artifacts/$ARTIFACT_NAME"
-        shell: bash
+          cp "$EXE" "artifacts/$NAME"
+
+      - name: Inspect binary
+        run: .github/scripts/ci_binary.sh inspect "${{ steps.artifact.outputs.path }}"
+
+      - name: Smoke test (server + DSU protocol)
+        timeout-minutes: 3
+        run: .github/scripts/ci_binary.sh smoke "${{ steps.artifact.outputs.path }}"
+
+      - name: GUI check (Linux, virtual X server)
+        if: runner.os == 'Linux'
+        timeout-minutes: 2
+        run: .github/scripts/ci_binary.sh gui "${{ steps.artifact.outputs.path }}"
 
       - name: Upload to release (on release event)
         if: github.event_name == 'release'

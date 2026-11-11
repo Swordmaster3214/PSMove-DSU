@@ -66,7 +66,14 @@ The executable will be created as:
 python3 test/dsu_protocol_check.py
 ```
 
-Every push to a branch other than `main` also builds macOS Intel and Apple Silicon binaries and runs this check (the **macOS Test Build** workflow). Download them from the workflow run's **Artifacts** section.
+Every push to a branch other than `main` builds test binaries for Linux x64, Windows x64, macOS Intel and macOS Apple Silicon (the **Linux / Windows / macOS Test Build** workflows). Download them from each workflow run's **Artifacts** section.
+
+All build workflows, including **Build and Release**, run the same checks from `.github/scripts/ci_binary.sh`:
+- `inspect`: correct architecture, and no runtime dependencies users won't have (Visual C++ runtime DLLs on Windows, libstdc++ on Linux, non-system libraries on macOS)
+- `smoke`: starts the server with `--simulate 2` and runs the protocol check above
+- `gui` (Linux): opens the GUI under a virtual X server
+
+You can run the script locally too, e.g. `.github/scripts/ci_binary.sh smoke build/dsu_server_psmove_linux_x64`.
 
 ## Contributing Guidelines
 

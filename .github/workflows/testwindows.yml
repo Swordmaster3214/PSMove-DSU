@@ -1,108 +1,80 @@
 name: Windows Test Build
 
+# Builds a Windows x64 binary for testing a branch.
+#
+# Runs on every push to a branch other than main (GitHub only offers the "Run
+# workflow" button for workflows that already exist on main), or by hand from
+# the Actions tab. The binary is attached to the run as an artifact.
+# The checks live in .github/scripts/ci_binary.sh and are shared by all builds.
+
 on:
+  push:
+    branches-ignore: [main]
+    paths-ignore: ['**.md', 'LICENSE']
   workflow_dispatch:
-    inputs:
-      branch_name:
-        description: 'Branch to run the workflow on'
-        required: true
-        default: 'main' # Or your default branch
-        
+
 permissions:
-  contents: write
-  actions: read
+  contents: read
+
+concurrency:
+  group: windows-test-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash   # Git Bash, so the shared CI script runs the same as elsewhere
 
 jobs:
   build-windows:
+    name: Windows x64
     runs-on: windows-latest
 
     steps:
       - uses: actions/checkout@v4
 
-      # PSMoveAPI is fetched and statically linked by CMake (see CMakeLists.txt).
-      - name: Configure with CMake
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      # PSMoveAPI, Dear ImGui and GLFW are downloaded and built statically by CMake.
+      - name: Configure
         run: cmake -S . -B build
 
       - name: Build
-        run: cmake --build build --config Release
+        run: cmake --build build --config Release --parallel
 
-      - name: List build directory contents (debug)
+      - name: Locate executable
+        id: exe
         run: |
-          echo "Contents of build directory:"
-          Get-ChildItem build/ -Recurse
-          echo "Contents of build/Release directory:"
-          if (Test-Path "build/Release") {
-            Get-ChildItem build/Release/
-          } else {
-            echo "build/Release/ does not exist"
-          }
-          echo "Contents of build/Debug directory:"
-          if (Test-Path "build/Debug") {
-            Get-ChildItem build/Debug/
-          } else {
-            echo "build/Debug/ does not exist"
-          }
+          EXE=$(.github/scripts/ci_binary.sh locate)
+          echo "path=$EXE" >> "$GITHUB_OUTPUT"
+          echo "name=$(basename "$EXE")" >> "$GITHUB_OUTPUT"
 
-      - name: Check for specific executable
-        run: |
-          $executableFound = $false
-          if (Test-Path "build/Release/dsu_server_psmove_win64.exe") {
-            echo "Found dsu_server_psmove_win64.exe in Release"
-            Get-Item build/Release/dsu_server_psmove_win64.exe
-            $executableFound = $true
-          } elseif (Test-Path "build/Debug/dsu_server_psmove_win64.exe") {
-            echo "Found dsu_server_psmove_win64.exe in Debug"
-            Get-Item build/Debug/dsu_server_psmove_win64.exe
-            $executableFound = $true
-          } elseif (Test-Path "build/dsu_server_psmove_win64.exe") {
-            echo "Found dsu_server_psmove_win64.exe in build root"
-            Get-Item build/dsu_server_psmove_win64.exe
-            $executableFound = $true
-          }
-          
-          if (-not $executableFound) {
-            echo "dsu_server_psmove_win64.exe not found, listing all .exe files:"
-            Get-ChildItem build/ -Recurse -Filter "*.exe"
-          }
+      - name: Inspect binary
+        run: .github/scripts/ci_binary.sh inspect "${{ steps.exe.outputs.path }}"
 
-      - name: Upload executable to repository
+      - name: Package
         run: |
-          # Configure git
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          
-          # Find the executable in the most likely locations
-          $executablePath = $null
-          $targetName = "dsu_server_psmove_win64.exe"
-          
-          if (Test-Path "build/Release/$targetName") {
-            $executablePath = "build/Release/$targetName"
-          } elseif (Test-Path "build/Debug/$targetName") {
-            $executablePath = "build/Debug/$targetName"
-          } elseif (Test-Path "build/$targetName") {
-            $executablePath = "build/$targetName"
-          }
-          
-          if (-not $executablePath) {
-            echo "ERROR: $targetName not found"
-            exit 1
-          }
-          
-          echo "Found executable at: $executablePath"
-          
-          # Copy the executable to the root of the repository
-          Copy-Item $executablePath ./$targetName
-          
-          # Add and commit the file
-          git add $targetName
-          
-          # Check if there are changes to commit
-          $changes = git diff --staged --quiet
-          if ($LASTEXITCODE -eq 0) {
-            echo "No changes to commit - executable is already up to date"
-          } else {
-            git commit -m "Update Windows x64 executable from workflow run"
-            git push
-            echo "Successfully uploaded $targetName to repository"
-          }
-        shell: powershell
+          mkdir -p dist
+          cp "${{ steps.exe.outputs.path }}" dist/
+          cat > dist/README-Windows.txt <<'EOF'
+          PSMove-DSU test build for Windows x64, commit ${{ github.sha }}
+
+          This build is not signed. If SmartScreen warns about it, click
+          "More info" and then "Run anyway".
+
+          Add --headless to run without the GUI, --help for all options.
+          EOF
+
+      # Uploaded before the smoke test so a test failure still leaves a binary to try.
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.exe.outputs.name }}
+          path: dist/
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Smoke test (server + DSU protocol)
+        timeout-minutes: 3
+        run: .github/scripts/ci_binary.sh smoke "${{ steps.exe.outputs.path }}"
