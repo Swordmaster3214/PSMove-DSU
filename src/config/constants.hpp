@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <psmove.h>
 
 namespace Constants {
     // DSU Protocol
@@ -27,13 +28,14 @@ namespace Constants {
     // Reading until the queue is empty keeps input from lagging behind.
     constexpr int MAX_REPORTS_PER_POLL = 64;
 
-    // PSMove button constants
-    constexpr unsigned int Btn_TRIANGLE = 0x10;
-    constexpr unsigned int Btn_SQUARE = 0x80;
-    constexpr unsigned int Btn_CROSS = 0x40;
-    constexpr unsigned int Btn_CIRCLE = 0x20;
-    constexpr unsigned int Btn_MOVE = 0x08;
-    constexpr unsigned int Btn_START = 0x01;
-    constexpr unsigned int Btn_SELECT = 0x02;
-    constexpr unsigned int Btn_PS = 0x04;
+    // psmove_get_buttons() bitmasks, taken from PSMoveAPI's enum PSMove_Button
+    // so they always match what the library reports.
+    constexpr unsigned int Btn_TRIANGLE = ::Btn_TRIANGLE;
+    constexpr unsigned int Btn_SQUARE = ::Btn_SQUARE;
+    constexpr unsigned int Btn_CROSS = ::Btn_CROSS;
+    constexpr unsigned int Btn_CIRCLE = ::Btn_CIRCLE;
+    constexpr unsigned int Btn_MOVE = ::Btn_MOVE;
+    constexpr unsigned int Btn_START = ::Btn_START;
+    constexpr unsigned int Btn_SELECT = ::Btn_SELECT;
+    constexpr unsigned int Btn_PS = ::Btn_PS;
 }
