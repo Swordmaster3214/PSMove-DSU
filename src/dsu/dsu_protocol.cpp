@@ -114,10 +114,14 @@ DsuButtonSlot slot_for(DsuButton b) {
         case DsuButton::R2:        return {2, 0x02, 10};
         case DsuButton::L1:        return {2, 0x04, 9};
         case DsuButton::R1:        return {2, 0x08, 8};
-        case DsuButton::Triangle:  return {2, 0x10, 4};
-        case DsuButton::Circle:    return {2, 0x20, 5};
-        case DsuButton::Cross:     return {2, 0x40, 6};
-        case DsuButton::Square:    return {2, 0x80, 7};
+        // The spec lists the face buttons as "Y, B, A, X" in Nintendo positions
+        // (Y = left = Square, B = bottom = Cross, A = right = Circle, X = top =
+        // Triangle): digital bits from the MSB, analog bytes in that order.
+        // Dolphin reads these buttons from the analog bytes only.
+        case DsuButton::Triangle:  return {2, 0x10, 7};
+        case DsuButton::Circle:    return {2, 0x20, 6};
+        case DsuButton::Cross:     return {2, 0x40, 5};
+        case DsuButton::Square:    return {2, 0x80, 4};
         case DsuButton::Home:      return {3, 0x01, -1};
         case DsuButton::Touch:     return {4, 0x01, -1};
         default:                   return {0, 0, -1};
