@@ -109,22 +109,20 @@ dsu_server_psmove/
 ### Prerequisites
 
 #### All Platforms
-- **CMake** 3.10 or higher
+- **CMake** 3.18 or higher
 - **C++ compiler** with C++17 support
-- **PSMoveAPI 4.0.12** [downloaded](https://github.com/thp/psmoveapi/releases/latest/)
+- **Internet access on the first configure** - CMake downloads the PSMoveAPI 4.0.12 sources (pinned and hash-verified) and compiles them statically into the server. You do *not* need to install PSMoveAPI yourself.
 
 #### Linux
 ```bash
-sudo apt-get install libusb-1.0-0-dev libbluetooth-dev pkg-config
+sudo apt-get install libbluetooth-dev libdbus-1-dev libudev-dev pkg-config
 ```
 
 #### macOS
-```bash
-brew install libusb
-```
+- Xcode command line tools (`xcode-select --install`)
 
 #### Windows
-- Visual Studio 2017 or higher
+- Visual Studio 2019 or higher (or Build Tools for Visual Studio)
 - Windows SDK
 
 ### Build Instructions
@@ -142,11 +140,11 @@ brew install libusb
 3. **Configure with CMake**:
    #### Linux/macOS
    ```bash
-   cmake -DCMAKE_BUILD_TYPE=Release -DPSMOVE_ROOT=/path/to/psmoveapi ..
+   cmake -DCMAKE_BUILD_TYPE=Release ..
    ```
    #### Windows
    ```bash
-   cmake -DPSMOVE_ROOT=/path/to/psmoveapi ..
+   cmake ..
    ```
 
 5. **Build the project**:
@@ -160,13 +158,18 @@ brew install libusb
    ./dsu_server_psmove
    ```
 
-### Custom PSMoveAPI Location
+### Building Offline / Custom PSMoveAPI Sources
 
-If you have PSMoveAPI installed in a custom location:
+PSMoveAPI is built from source and linked statically, so end users of a release build do not need `psmoveapi.dll`, `libpsmoveapi.so`, or any other PSMoveAPI install. If you build without internet access, point CMake at local source trees instead of downloading them:
 
 ```bash
-cmake -DPSMOVE_ROOT=/path/to/psmoveapi ..
+cmake -DFETCHCONTENT_SOURCE_DIR_PSMOVEAPI=/path/to/psmoveapi-4.0.12 \
+      -DFETCHCONTENT_SOURCE_DIR_HIDAPI=/path/to/hidapi ..
 ```
+
+(`hidapi` here is the [thp/hidapi](https://github.com/thp/hidapi) fork at commit `38681c7`, the revision PSMoveAPI 4.0.12 pins as a submodule.)
+
+On Windows with MSVC the C/C++ runtime is also linked statically (so the Visual C++ Redistributable is not required); pass `-DDSU_STATIC_RUNTIME=OFF` to opt out.
 ## Configuration
 
 ### DSU Server Settings
@@ -200,7 +203,7 @@ The server runs on `127.0.0.1:26760` by default, which is the standard DSU port.
 
 ### Build Issues
 - Make sure all dependencies are installed
-- Verify CMake version is 3.10 or higher
+- Verify CMake version is 3.18 or higher
 - On Windows, ensure you're using the correct Visual Studio toolchain
 
 ### Linux Permissions

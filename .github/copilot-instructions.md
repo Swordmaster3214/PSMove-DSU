@@ -24,13 +24,13 @@ Keep this file short and actionable. Focus on patterns and commands that help an
   - `DSUProtocol::make_data_packet` constructs payloads (shared begin, connected, packet_no, control bytes, sticks, touch, timestamp, accel, gyro).
 
 ## Build & run (exact steps)
-- Requirements: `cmake` (>=3.10), compiler with C++17, `psmoveapi` (libusb/bluez on Linux). On Linux you also need libusb/bluez/udev dev packages.
+- Requirements: `cmake` (>=3.18), compiler with C++17. PSMoveAPI 4.0.12 is downloaded, built from source and linked statically by CMake (no manual install). On Linux you also need the dbus/bluez/udev dev packages (`libdbus-1-dev libbluetooth-dev libudev-dev`).
 - Configure build (example):
   - mkdir build && cd build
-  - cmake -DPSMOVE_ROOT=/path/to/psmoveapi_install ..
+  - cmake -DCMAKE_BUILD_TYPE=Release ..
   - make
 - CMake sets an executable name with a platform suffix (printed on configure); executable is placed in the build directory.
-- If psmoveapi isn't detected: set `-DPSMOVE_ROOT` to the directory with `include/psmove.h` and corresponding `lib/`.
+- Offline builds: set `-DFETCHCONTENT_SOURCE_DIR_PSMOVEAPI=<psmoveapi-4.0.12 src>` and `-DFETCHCONTENT_SOURCE_DIR_HIDAPI=<thp/hidapi @ 38681c7 src>`.
 - Running locally:
   - Pairing mode: `./<exe> --pair` (run pairing flow implemented in `psmove_pairing.cpp`).
   - Normal mode: `./<exe>` (recommended: run as root if you need realtime priority or raw device access).

@@ -16,63 +16,29 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            asset: psmoveapi-4.0.12-linux.tar.gz
-          - os: macos-13
-            asset: psmoveapi-4.0.12-macos.tar.gz
+          - os: macos-15-intel   # x86_64 (macos-13 runners have been retired)
+          - os: macos-latest     # arm64
           - os: windows-latest
-            asset: psmoveapi-4.0.12-windows-msvc2017-x64.zip
 
     steps:
       - uses: actions/checkout@v4
+
+      # PSMoveAPI is downloaded and compiled statically into the executable by
+      # CMake itself (see CMakeLists.txt), so no psmoveapi install step is needed.
 
       - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libusb-1.0-0-dev libbluetooth-dev pkg-config
-
-      - name: Install dependencies (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          brew update
-          brew install libusb
-
-      - name: Download psmoveapi (Linux/macOS)
-        if: runner.os != 'Windows'
-        run: |
-          curl -L -o psmoveapi.${{ matrix.asset }} \
-            https://github.com/thp/psmoveapi/releases/download/4.0.12/${{ matrix.asset }}
-
-      - name: Download psmoveapi (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          curl -L -o psmoveapi.${{ matrix.asset }} https://github.com/thp/psmoveapi/releases/download/4.0.12/${{ matrix.asset }}
-
-      - name: Extract psmoveapi (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          mkdir -p psmoveapi_install
-          tar -xzf psmoveapi.${{ matrix.asset }} -C psmoveapi_install --strip-components=1
-
-      - name: Extract psmoveapi (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          mkdir -p psmoveapi_install
-          tar -xzf psmoveapi.${{ matrix.asset }} -C psmoveapi_install --strip-components=1
-
-      - name: Extract psmoveapi (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          mkdir -p psmoveapi_install
-          tar -xf psmoveapi.${{ matrix.asset }} -C psmoveapi_install --strip-components=1
+          sudo apt-get install -y libbluetooth-dev libdbus-1-dev libudev-dev pkg-config
 
       - name: Configure with CMake (Windows)
         if: runner.os == 'Windows'
-        run: cmake -S . -B build -DPSMOVE_ROOT=${{ github.workspace }}/psmoveapi_install
+        run: cmake -S . -B build
 
       - name: Configure with CMake (Linux/macOS)
         if: runner.os != 'Windows'
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DPSMOVE_ROOT=${{ github.workspace }}/psmoveapi_install
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
         run: cmake --build build --config Release

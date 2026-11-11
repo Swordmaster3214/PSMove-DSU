@@ -16,20 +16,20 @@ Thank you for your interest in contributing to PSMove-DSU! This project provides
 ### Prerequisites
 
 - **C++17** compatible compiler
-- **CMake 3.10+**
-- **PSMoveAPI 4.0.12** (automatically downloaded by build system)
+- **CMake 3.18+**
+- **PSMoveAPI 4.0.12** (downloaded, built from source and statically linked by the build system - no manual install needed)
 
 ### Platform-Specific Dependencies
 
 #### Linux (Ubuntu/Debian)
 ```bash
 sudo apt-get update
-sudo apt-get install -y libusb-1.0-0-dev libbluetooth-dev pkg-config build-essential cmake
+sudo apt-get install -y libbluetooth-dev libdbus-1-dev libudev-dev pkg-config build-essential cmake
 ```
 
 #### macOS
 ```bash
-brew install libusb cmake
+brew install cmake
 ```
 
 #### Windows

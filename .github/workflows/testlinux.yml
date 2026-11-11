@@ -22,20 +22,11 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libusb-1.0-0-dev libbluetooth-dev pkg-config
+          sudo apt-get install -y libbluetooth-dev libdbus-1-dev libudev-dev pkg-config
 
-      - name: Download psmoveapi
-        run: |
-          curl -L -o psmoveapi.psmoveapi-4.0.12-linux.tar.gz \
-            https://github.com/thp/psmoveapi/releases/download/4.0.12/psmoveapi-4.0.12-linux.tar.gz
-
-      - name: Extract psmoveapi
-        run: |
-          mkdir -p psmoveapi_install
-          tar -xzf psmoveapi.psmoveapi-4.0.12-linux.tar.gz -C psmoveapi_install --strip-components=1
-
+      # PSMoveAPI is fetched and statically linked by CMake (see CMakeLists.txt).
       - name: Configure with CMake
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DPSMOVE_ROOT=${{ github.workspace }}/psmoveapi_install
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
         run: cmake --build build --config Release
