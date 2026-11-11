@@ -42,4 +42,6 @@
 
 # custom directories
 test/**
+# ...except test files meant to be shared
+!test/dsu_protocol_check.py
 build/**
