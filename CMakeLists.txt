@@ -17,7 +17,9 @@ endif()
 
 project(dsu_server_psmove LANGUAGES C CXX)
 if(APPLE)
-    enable_language(OBJCXX)
+    # OBJCXX for PSMoveAPI's .mm files. OBJC is needed too: without it CMake
+    # compiles GLFW's .m files as Objective-C++, which rejects GLFW's C code.
+    enable_language(OBJC OBJCXX)
 endif()
 
 set(CMAKE_CXX_STANDARD 17)
