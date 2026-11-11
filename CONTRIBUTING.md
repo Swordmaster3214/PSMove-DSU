@@ -57,6 +57,17 @@ The executable will be created as:
 - macOS: `dsu_server_psmove_macos_x64` or `dsu_server_psmove_macos_arm64`
 - Windows: `dsu_server_psmove_win64.exe`
 
+### Testing Without Hardware
+
+`test/dsu_protocol_check.py` (Python 3, standard library only) checks that the server answers DSU requests correctly, including per-slot subscriptions and the 5 second subscription timeout:
+
+```bash
+./build/dsu_server_psmove_linux_x64 --headless --simulate 2 &
+python3 test/dsu_protocol_check.py
+```
+
+Every push to a branch other than `main` also builds macOS Intel and Apple Silicon binaries and runs this check (the **macOS Test Build** workflow). Download them from the workflow run's **Artifacts** section.
+
 ## Contributing Guidelines
 
 ### Code Style

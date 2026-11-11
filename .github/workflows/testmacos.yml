@@ -1,0 +1,118 @@
+name: macOS Test Build
+
+# Builds Intel (x86_64) and Apple Silicon (arm64) binaries for testing a branch.
+#
+# Runs automatically on every push to a branch other than main, so a feature
+# branch gets macOS builds without this file having to exist on main first
+# (GitHub only offers the "Run workflow" button for files on the default
+# branch). It can also be started by hand from the Actions tab.
+#
+# The binaries are attached to the workflow run as downloadable artifacts
+# instead of being committed back to the branch.
+
+on:
+  push:
+    branches-ignore: [main]
+    paths-ignore: ['**.md', 'LICENSE']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-macos:
+    name: macOS ${{ matrix.arch }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15-intel   # Intel runner
+            arch: x86_64
+          - os: macos-latest     # Apple Silicon runner
+            arch: arm64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # PSMoveAPI, Dear ImGui and GLFW are downloaded and built statically by CMake.
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release -j "$(sysctl -n hw.ncpu)"
+
+      - name: Inspect binary
+        id: exe
+        run: |
+          EXE=$(ls build/dsu_server_psmove_macos_* | head -n 1)
+          NAME=$(basename "$EXE")
+          echo "path=$EXE" >> "$GITHUB_OUTPUT"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+
+          echo "== $NAME"
+          file "$EXE"
+          ARCHS=$(lipo -archs "$EXE")
+          echo "Architectures: $ARCHS"
+          if [ "$ARCHS" != "${{ matrix.arch }}" ]; then
+            echo "::error::Expected ${{ matrix.arch }}, got $ARCHS"
+            exit 1
+          fi
+
+          echo "== Minimum macOS version"
+          otool -l "$EXE" | grep -A4 LC_BUILD_VERSION | grep -E "minos|sdk"
+
+          echo "== Linked libraries (must all be part of macOS)"
+          otool -L "$EXE"
+          NON_SYSTEM=$(otool -L "$EXE" | tail -n +2 | awk '{print $1}' | grep -v -E '^(/usr/lib/|/System/Library/)' || true)
+          if [ -n "$NON_SYSTEM" ]; then
+            echo "::error::Binary depends on libraries testers won't have: $NON_SYSTEM"
+            exit 1
+          fi
+
+      - name: Package
+        run: |
+          mkdir -p dist
+          cp "${{ steps.exe.outputs.path }}" dist/
+          cat > dist/README-macOS.txt <<'EOF'
+          PSMove-DSU test build for macOS (${{ matrix.arch }}), commit ${{ github.sha }}
+
+          This build is not signed or notarized. After extracting:
+
+            xattr -d com.apple.quarantine ./${{ steps.exe.outputs.name }}
+            ./${{ steps.exe.outputs.name }}
+
+          (Or right-click the file in Finder > Open, and confirm.)
+          Add --headless to run without the GUI, --help for all options.
+          EOF
+          # tar keeps the executable bit, which artifact zips would drop
+          tar -czf "${{ steps.exe.outputs.name }}.tar.gz" -C dist .
+
+      # Uploaded before the smoke test so a test failure still leaves a binary to try.
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.exe.outputs.name }}
+          path: ${{ steps.exe.outputs.name }}.tar.gz
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Smoke test (server + DSU protocol)
+        timeout-minutes: 3
+        run: |
+          EXE="${{ steps.exe.outputs.path }}"
+          "$EXE" --help
+          "$EXE" --headless --simulate 2 --config "$RUNNER_TEMP/config.ini" > server.log 2>&1 &
+          SERVER_PID=$!
+          set +e
+          python3 test/dsu_protocol_check.py
+          RESULT=$?
+          kill -INT $SERVER_PID 2>/dev/null
+          wait $SERVER_PID
+          echo "== Server log"
+          cat server.log
+          exit $RESULT

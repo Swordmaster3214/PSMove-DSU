@@ -7,6 +7,14 @@ if(DSU_STATIC_RUNTIME)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
 
+# Without this, macOS binaries require the same macOS version as the machine
+# that built them (CI runners are always recent). 10.15 is the first release
+# with std::filesystem; arm64 builds are raised to 11.0 automatically.
+# Must be set before project().
+if(CMAKE_HOST_APPLE AND NOT CMAKE_OSX_DEPLOYMENT_TARGET)  # APPLE isn't set until project()
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "Minimum macOS version")
+endif()
+
 project(dsu_server_psmove LANGUAGES C CXX)
 if(APPLE)
     enable_language(OBJCXX)
