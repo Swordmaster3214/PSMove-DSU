@@ -2,17 +2,21 @@ name: macOS Test Build
 
 # Builds Intel (x86_64) and Apple Silicon (arm64) binaries for testing a branch.
 #
-# Runs on pull requests into main (open a draft pull request to get test
-# binaries for a branch), or by hand from the Actions tab for any branch.
+# Runs on every push to main, on pull requests into main (open a draft pull
+# request to get test binaries for a branch), and by hand from the Actions tab
+# for any branch.
 # Binaries are attached to the run as artifacts.
 # The checks live in .github/scripts/ci_binary.sh and are shared by all builds.
 
 on:
   # Pull requests into main must pass this check before they can be merged
   # (required in the repository's ruleset). No paths-ignore: a skipped required
-  # check never reports, which would block docs-only pull requests. There's no
-  # push trigger, so a pull request's commits aren't built twice.
+  # check never reports, which would block docs-only pull requests.
   pull_request:
+    branches: [main]
+  # Commits pushed straight to main. Limited to main so a pull request's
+  # commits aren't built twice (once for the push, once for the pull request).
+  push:
     branches: [main]
   workflow_dispatch:
 
