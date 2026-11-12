@@ -25,6 +25,10 @@ endif()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# compile_commands.json for clangd and other tooling (Makefile/Ninja generators
+# only; clangd finds it in build/ automatically).
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # Single-config generators (Make, Ninja) otherwise build with no optimisation
 # and no flags at all when -DCMAKE_BUILD_TYPE is omitted.
 get_property(DSU_IS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
