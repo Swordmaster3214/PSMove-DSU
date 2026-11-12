@@ -25,6 +25,13 @@ endif()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Single-config generators (Make, Ninja) otherwise build with no optimisation
+# and no flags at all when -DCMAKE_BUILD_TYPE is omitted.
+get_property(DSU_IS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+if(NOT DSU_IS_MULTI_CONFIG AND NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+
 # Determine platform suffix for executable name
 if(WIN32)
     if(CMAKE_SIZEOF_VOID_P EQUAL 8)
@@ -271,21 +278,20 @@ if(DSU_BUILD_GUI)
     set_target_properties(imgui_static PROPERTIES CXX_STANDARD 17 POSITION_INDEPENDENT_CODE ON)
 endif()
 
-# Version string shown in the GUI and diagnostics report
+# Version string shown in the GUI and diagnostics report. Regenerated on every
+# build (see cmake/GitVersion.cmake) so it follows the checkout.
 find_package(Git QUIET)
-set(DSU_VERSION "dev")
-if(GIT_FOUND)
-    execute_process(
-        COMMAND ${GIT_EXECUTABLE} describe --tags --always --dirty
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        OUTPUT_VARIABLE DSU_GIT_DESCRIBE
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-        ERROR_QUIET
-    )
-    if(DSU_GIT_DESCRIBE)
-        set(DSU_VERSION "${DSU_GIT_DESCRIBE}")
-    endif()
-endif()
+set(DSU_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
+add_custom_target(dsu_version
+    COMMAND ${CMAKE_COMMAND}
+        -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
+        -DOUTPUT=${DSU_GENERATED_DIR}/dsu_version.h
+        -DGIT_EXECUTABLE=${GIT_EXECUTABLE}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/GitVersion.cmake
+    BYPRODUCTS ${DSU_GENERATED_DIR}/dsu_version.h
+    COMMENT "Updating version header"
+    VERBATIM
+)
 
 # License texts built into the executable (--licenses and the GUI's About tab),
 # so the notices travel with the binary. Stored as byte arrays rather than
@@ -309,8 +315,6 @@ file(CONFIGURE OUTPUT "${DSU_LICENSE_CPP}" CONTENT "${DSU_LICENSE_SOURCE}" @ONLY
 # ---------------------------------------------------------------------------
 # DSU server
 # ---------------------------------------------------------------------------
-include_directories(src)
-
 # Source files
 set(SOURCES
     src/main.cpp
@@ -339,7 +343,8 @@ endif()
 add_executable(${EXECUTABLE_NAME} ${SOURCES})
 
 target_link_libraries(${EXECUTABLE_NAME} PRIVATE psmoveapi_static)
-target_compile_definitions(${EXECUTABLE_NAME} PRIVATE DSU_VERSION="${DSU_VERSION}")
+target_include_directories(${EXECUTABLE_NAME} PRIVATE src ${DSU_GENERATED_DIR})
+add_dependencies(${EXECUTABLE_NAME} dsu_version)
 
 if(DSU_BUILD_GUI)
     target_link_libraries(${EXECUTABLE_NAME} PRIVATE imgui_static)
@@ -367,13 +372,28 @@ set_target_properties(${EXECUTABLE_NAME} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}
 )
 
-# Enable debug info for release builds
-if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    if(WIN32)
-        target_compile_options(${EXECUTABLE_NAME} PRIVATE /Zi)
-        target_link_options(${EXECUTABLE_NAME} PRIVATE /DEBUG)
-    else()
-        target_compile_options(${EXECUTABLE_NAME} PRIVATE -g)
+# Debug info for release builds. Generator expressions, because multi-config
+# generators (Visual Studio, Xcode) leave CMAKE_BUILD_TYPE empty. /DEBUG turns
+# off linker optimisation by default, so switch it back on.
+if(MSVC)
+    target_compile_options(${EXECUTABLE_NAME} PRIVATE $<$<CONFIG:Release>:/Zi>)
+    target_link_options(${EXECUTABLE_NAME} PRIVATE
+        $<$<CONFIG:Release>:/DEBUG /OPT:REF /OPT:ICF>)
+else()
+    target_compile_options(${EXECUTABLE_NAME} PRIVATE $<$<CONFIG:Release>:-g>)
+endif()
+
+# Warnings for our own code only (third-party targets are built with -w).
+option(DSU_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
+if(MSVC)
+    target_compile_options(${EXECUTABLE_NAME} PRIVATE /W4)
+    if(DSU_WARNINGS_AS_ERRORS)
+        target_compile_options(${EXECUTABLE_NAME} PRIVATE /WX)
+    endif()
+else()
+    target_compile_options(${EXECUTABLE_NAME} PRIVATE -Wall -Wextra)
+    if(DSU_WARNINGS_AS_ERRORS)
+        target_compile_options(${EXECUTABLE_NAME} PRIVATE -Werror)
     endif()
 endif()
 

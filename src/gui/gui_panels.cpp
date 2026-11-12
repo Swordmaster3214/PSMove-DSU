@@ -14,9 +14,7 @@
 #include <cstring>
 #include <sstream>
 
-#ifndef DSU_VERSION
-#define DSU_VERSION "dev"
-#endif
+#include "dsu_version.h"
 
 namespace {
 
