@@ -66,7 +66,7 @@ The executable will be created as:
 python3 test/dsu_protocol_check.py
 ```
 
-Every push to a branch other than `main` builds test binaries for Linux x64, Windows x64, macOS Intel and macOS Apple Silicon (the **Linux / Windows / macOS Test Build** workflows). Download them from each workflow run's **Artifacts** section.
+Every pull request into `main` builds test binaries for Linux x64, Windows x64, macOS Intel and macOS Apple Silicon (the **Linux / Windows / macOS Test Build** workflows); open a draft pull request to get them for a work-in-progress branch, or start the workflows by hand from the **Actions** tab. Download the binaries from each workflow run's **Artifacts** section.
 
 All build workflows, including **Build and Release**, run the same checks from `.github/scripts/ci_binary.sh`:
 - `inspect`: correct architecture, and no runtime dependencies users won't have (Visual C++ runtime DLLs on Windows, libstdc++ on Linux, non-system libraries on macOS)
@@ -170,7 +170,7 @@ Before reporting, check existing issues for duplicates and go through the templa
 ```
 
 ### Review Process
-1. **Automated builds** must pass on all platforms
+1. **Automated builds** must pass on all platforms: a pull request into `main` can only be merged once the Linux x64, Windows x64, macOS x86_64 and macOS arm64 checks succeed
 2. **Code review** by maintainers
 3. **Performance validation** for timing-critical changes
 4. **Testing** on real hardware when possible
