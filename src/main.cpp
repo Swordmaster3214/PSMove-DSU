@@ -3,6 +3,7 @@
 #include "config/config_file.hpp"
 #include "utils/logging.hpp"
 #include "utils/signal_handler.hpp"
+#include "utils/licenses.hpp"
 #include "psmove/psmove_pairing.hpp"
 #include "psmove/linux_setup.hpp"
 #include "dsu/dsu_server.hpp"
@@ -26,6 +27,7 @@ void print_usage(const char* exe) {
         "  --map <p> <y> <r>   Gyro source axis (0=X 1=Y 2=Z) for pitch, yaw, roll\n"
         "  --flip <p> <y> <r>  Invert gyro pitch, yaw, roll (0/1)\n"
         "  --simulate <n>      Add n virtual controllers (for testing without hardware)\n"
+        "  --licenses          Show the license of this program and the code it includes\n"
         "  --help              Show this help\n";
 }
 } // namespace
@@ -39,6 +41,9 @@ int main(int argc, char** argv) {
             config.config_path = argv[++i];
         } else if (std::strcmp(argv[i], "--help") == 0 || std::strcmp(argv[i], "-h") == 0) {
             print_usage(argv[0]);
+            return 0;
+        } else if (std::strcmp(argv[i], "--licenses") == 0) {
+            Licenses::print_all(std::cout);
             return 0;
         }
     }

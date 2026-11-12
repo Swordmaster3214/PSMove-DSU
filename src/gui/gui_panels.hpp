@@ -46,6 +46,7 @@ private:
     void draw_emulators_tab();
     void draw_pairing_tab();
     void draw_log_tab();
+    void draw_about_tab();
 
     void apply_config();
     int preview_slot();

@@ -2,6 +2,7 @@
 #include "config/config_file.hpp"
 #include "config/mapping.hpp"
 #include "dsu/dsu_protocol.hpp"
+#include "utils/licenses.hpp"
 
 #include <imgui.h>
 
@@ -320,6 +321,7 @@ void GuiPanels::draw() {
         if (ImGui::BeginTabItem("Emulators")) { draw_emulators_tab(); ImGui::EndTabItem(); }
         if (ImGui::BeginTabItem("Pairing")) { draw_pairing_tab(); ImGui::EndTabItem(); }
         if (ImGui::BeginTabItem("Log")) { draw_log_tab(); ImGui::EndTabItem(); }
+        if (ImGui::BeginTabItem("About")) { draw_about_tab(); ImGui::EndTabItem(); }
         ImGui::EndTabBar();
     }
 
@@ -1073,6 +1075,35 @@ void GuiPanels::draw_pairing_tab() {
 // ---------------------------------------------------------------------------
 // Log
 // ---------------------------------------------------------------------------
+
+void GuiPanels::draw_about_tab() {
+    ImGui::TextColored(COL_ACCENT, "PSMove-DSU");
+    ImGui::SameLine();
+    ImGui::TextDisabled("%s", DSU_VERSION);
+    ImGui::TextLinkOpenURL("https://github.com/Swordmaster3214/PSMove-DSU");
+    ImGui::Spacing();
+
+    ImGui::TextWrapped("%s", Licenses::project_notice());
+    ImGui::Spacing();
+
+    // Each text gets its own scrolling area, sharing the rest of the tab.
+    if (ImGui::BeginTabBar("license_texts")) {
+        const char* texts[2][2] = {
+            {"Third-party licenses", Licenses::third_party_text()},
+            {"GNU GPL v3", Licenses::gpl_text()},
+        };
+        for (const auto& t : texts) {
+            if (ImGui::BeginTabItem(t[0])) {
+                if (ImGui::SmallButton("Copy")) ImGui::SetClipboardText(t[1]);
+                ImGui::BeginChild("text", ImVec2(0, 0), ImGuiChildFlags_Borders);
+                ImGui::TextUnformatted(t[1]);
+                ImGui::EndChild();
+                ImGui::EndTabItem();
+            }
+        }
+        ImGui::EndTabBar();
+    }
+}
 
 void GuiPanels::draw_log_tab() {
     bool verbose = Logger::is_verbose();

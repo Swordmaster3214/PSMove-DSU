@@ -85,6 +85,7 @@ The headless mode uses the same file, so you can set things up in the GUI and th
 | `--map <p> <y> <r>` | Gyro source axis (0=X, 1=Y, 2=Z) for pitch, yaw and roll (overrides the settings file) |
 | `--flip <p> <y> <r>` | Invert gyro pitch, yaw, roll (0/1) (overrides the settings file) |
 | `--simulate <n>` | Add *n* virtual controllers, for testing an emulator setup without hardware |
+| `--licenses` | Show the license of PSMove-DSU and of the third-party code it includes |
 
 ### Button Mappings
 
@@ -316,35 +317,7 @@ Contributions are welcome! Please feel free to submit pull requests, report issu
 
 
 ## Licensing
-License details for this project are in the LICENSE file.
 
-The PS Move API library is licensed under the terms of the license below.
-However, some optional third party libraries might have a different license.
-Be sure to read the README file for details on third party licenses.
+PSMove-DSU is free software, released under the GNU General Public License, version 3. See [LICENSE](LICENSE).
 
-====
-
-Copyright (c) 2011, 2012 Thomas Perl <m@thp.io>
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
-   1. Redistributions of source code must retain the above copyright
-      notice, this list of conditions and the following disclaimer.
-
-   2. Redistributions in binary form must reproduce the above copyright
-      notice, this list of conditions and the following disclaimer in the
-      documentation and/or other materials provided with the distribution.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-POSSIBILITY OF SUCH DAMAGE.
+The executables also include third-party code under its own licenses: [PS Move API](https://github.com/thp/psmoveapi) (BSD 2-clause), [HIDAPI](https://github.com/thp/hidapi) (used under GPLv3), [GLM](https://github.com/g-truc/glm) (MIT) and, in GUI builds, [Dear ImGui](https://github.com/ocornut/imgui) (MIT) and [GLFW](https://www.glfw.org) (zlib). Their copyright notices and license texts are in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md). The same texts are built into every executable: run it with `--licenses`, or open the GUI's **About** tab.
