@@ -85,7 +85,7 @@ public:
     // to this computer's Bluetooth adapter. Runs in the background.
     void request_pair(const std::string& serial);
     PairStatus get_pair_status();
-    void request_scan() { scan_requested_.store(true); }
+    void request_scan() { full_scan_requested_.store(true); scan_requested_.store(true); }
 
 private:
     void thread_main();
@@ -128,6 +128,10 @@ private:
     // NEW: Scanner thread members
     std::thread scanner_thread_;
     std::atomic<bool> scan_requested_{false};
+    // Open every controller even if the device count says nothing changed
+    // (first scan, "Scan now", after pairing or a disconnect).
+    std::atomic<bool> full_scan_requested_{true};
+    int unusable_devices_ = 0;  // Scanner thread only: listed devices the last full scan couldn't use
     std::atomic<bool> scanning_{false};
     std::atomic<bool> pause_scan_{false};
     std::mutex pending_controllers_mutex_;

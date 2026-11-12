@@ -1,5 +1,6 @@
 #include "psmove/psmove_manager.hpp"
 #include "utils/logging.hpp"
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdarg>
@@ -549,10 +550,41 @@ void PSMoveManager::scan_for_controllers_async() {
     std::vector<std::string> available_serials;
     std::vector<std::string> usb_serials;
 
-    // Scan for controllers (this is the slow part, but now in background)
+    // Opening a controller reads its calibration over Bluetooth, which holds up
+    // input from every controller on the adapter for ~100-150 ms. So only open
+    // them when the OS lists a device we can't account for. Counting devices
+    // just lists them; it doesn't talk to the controllers.
+    int listed = psmove_count_connected();
+    bool forced = full_scan_requested_.exchange(false);
+    if (!forced) {
+        int accounted = unusable_devices_;
+        {
+            std::lock_guard<std::mutex> lk(mtx_);
+            for (int slot = 0; slot < Constants::MAX_CONTROLLERS; slot++) {
+                if (controllers_[slot] && !is_simulated_slot(slot)) accounted++;
+            }
+        }
+        {
+            std::lock_guard<std::mutex> lk(pending_controllers_mutex_);
+            accounted += int(pending_controllers_.size());
+        }
+        {
+            std::lock_guard<std::mutex> lk(info_mutex_);
+            accounted += int(usb_serials_.size());
+        }
+        if (listed == accounted) {
+            Logger::debug("Scan: " + std::to_string(listed) + " device(s) listed, all known - not opening them");
+            return;
+        }
+        Logger::debug("Scan: " + std::to_string(listed) + " device(s) listed, " +
+                      std::to_string(accounted) + " known - opening them");
+    }
+
+    int opened = 0, already_held = 0;
     for (int id = 0; id < 8; id++) {
         PSMove* controller = psmove_connect_by_id(id);
         if (!controller) continue;
+        opened++;
 
         std::string serial = get_serial_safe(controller);
         std::string conn_type = get_connection_type_string(controller);
@@ -574,6 +606,7 @@ void PSMoveManager::scan_for_controllers_async() {
         }
 
         if (already_connected) {
+            already_held++;
             Logger::debug("Skipping " + serial + " - already connected");
             psmove_disconnect(controller);
             continue;
@@ -590,6 +623,7 @@ void PSMoveManager::scan_for_controllers_async() {
     }
 
     // Queue new controllers for integration
+    int queued = 0;
     {
         std::lock_guard<std::mutex> pending_lock(pending_controllers_mutex_);
 
@@ -626,10 +660,17 @@ void PSMoveManager::scan_for_controllers_async() {
 
             PendingController pending = {controller, serial, target_slot};
             pending_controllers_.push_back(pending);
+            queued++;
 
             Logger::info("Queued " + serial + " for assignment to Slot " + std::to_string(target_slot));
         }
     }
+
+    // Devices listed but not usable (no free slot, failed to open, a remote
+    // controller...): remember them so they don't trigger a full scan every time.
+    // Worked out from the listed count, so the next check matches until the
+    // OS's list actually changes, even where the listing and opening disagree.
+    unusable_devices_ = std::max(0, listed - already_held - queued - int(usb_serials.size()));
 }
 
 // NEW: Fast integration of discovered controllers
@@ -722,7 +763,7 @@ void PSMoveManager::remove_controller(int slot, const std::string& reason) {
         // Opened but never sent anything (e.g. turned off but still listed by the OS).
         Logger::debug("Closed " + serial + " in slot " + std::to_string(slot) + ": " + reason);
     }
-    scan_requested_.store(true);
+    request_scan();
 }
 
 void PSMoveManager::request_pair(const std::string& serial) {
@@ -783,7 +824,7 @@ void PSMoveManager::pair_thread_main(std::string serial) {
     int result = psmove_pair(usb);
     psmove_disconnect(usb);
     pause_scan_ = false;
-    scan_requested_ = true;
+    request_scan();
 
     if (result) {
         Logger::info("Pairing succeeded for " + found_serial);
