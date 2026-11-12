@@ -2,6 +2,8 @@
 #include "utils/logging.hpp"
 #include <chrono>
 #include <cmath>
+#include <cstdarg>
+#include <cstdio>
 #include <cstdlib>
 #include <vector>
 
@@ -16,6 +18,16 @@ namespace {
 uint64_t steady_now_us() {
     return std::chrono::duration_cast<std::chrono::microseconds>(
         std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+
+// printf-style formatting for log messages.
+std::string fmt(const char* format, ...) {
+    char buf[256];
+    va_list args;
+    va_start(args, format);
+    std::vsnprintf(buf, sizeof(buf), format, args);
+    va_end(args);
+    return buf;
 }
 
 // Raise an atomic to at least `v`.
@@ -405,6 +417,9 @@ void PSMoveManager::thread_main() {
 #endif
 
                 SlotStats& st = stats_[slot];
+                // Time since this slot was last read; normally ~PSMOVE_POLL_MS.
+                uint64_t poll_gap_us = st.last_poll_us ? poll_timestamp - st.last_poll_us : 0;
+                st.last_poll_us = poll_timestamp;
                 st.polls_total.fetch_add(1, std::memory_order_relaxed);
                 update_outputs(slot, steady_now_us());
 
@@ -417,8 +432,10 @@ void PSMoveManager::thread_main() {
                     }
                     continue;
                 }
+                uint64_t report_gap_us = poll_timestamp - st.last_report_us;
+                bool first_report = !st.connected.load(std::memory_order_relaxed);
                 st.last_report_us = steady_now_us();
-                if (!st.connected.load(std::memory_order_relaxed)) {
+                if (first_report) {
                     // First report: only now is the controller really there.
                     st.connected_since_us = st.last_report_us;
                     st.connected = true;
@@ -427,9 +444,12 @@ void PSMoveManager::thread_main() {
                 }
                 st.reports_total.fetch_add(reports, std::memory_order_relaxed);
                 store_max<uint32_t>(st.backlog_peak, uint32_t(reports));
-                if (reports > 8) {
-                    Logger::debug("Slot " + std::to_string(slot) + ": drained " + std::to_string(reports) +
-                                  " queued reports in one poll");
+                // Several reports at once: tells a Bluetooth hold-up (long report gap,
+                // normal poll gap) from our own loop stalling (long poll gap).
+                if (reports >= 3 && !first_report) {
+                    Logger::debug(fmt("Slot %d: %d reports at once, %.1f ms since the previous one, "
+                                         "poll loop gap %.1f ms", slot, reports,
+                                         report_gap_us / 1000.0, poll_gap_us / 1000.0));
                 }
 
                 // Read sensor data

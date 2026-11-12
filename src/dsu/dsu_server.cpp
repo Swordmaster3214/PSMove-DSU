@@ -342,7 +342,10 @@ void DSUServer::send_thread_main() {
 #endif
 
     int diag_counter = 0;
-    int latency_warning_counter = 0;
+    // Per slot: the sample last sent (by its read time), to spot the first send
+    // of each new one, and when we last warned about a slow first send.
+    uint64_t last_sent_poll_us[Constants::MAX_CONTROLLERS] = {};
+    uint64_t last_latency_warn_us[Constants::MAX_CONTROLLERS] = {};
 
     // Local copy of the mapping settings. Re-copied (under the mutex) only when
     // the GUI changes something, so the steady state takes no lock for config.
@@ -409,13 +412,17 @@ void DSUServer::send_thread_main() {
                 sample.send_timestamp_us = std::chrono::duration_cast<std::chrono::microseconds>(
                     std::chrono::steady_clock::now().time_since_epoch()).count();
 
-                // Monitor latency
-                if (Logger::is_verbose() && sample.poll_timestamp_us > 0) {
-                    uint64_t total_latency = sample.get_latency_us();
-                    if (total_latency > Constants::LATENCY_WARNING_US &&
-                        (++latency_warning_counter % 250) == 0) {
-                        Logger::warn("High end-to-end latency for slot " + std::to_string(slot) +
-                                   ": " + std::to_string(total_latency) + "us");
+                // Latency the server adds: from reading a report to sending it
+                // the first time. (Later sends repeat the same sample until the
+                // controller's next report, so their age says nothing about us.)
+                if (sample.poll_timestamp_us != last_sent_poll_us[slot]) {
+                    last_sent_poll_us[slot] = sample.poll_timestamp_us;
+                    uint64_t latency = sample.get_latency_us();
+                    if (Logger::is_verbose() && latency > uint64_t(Constants::LATENCY_WARNING_US) &&
+                        sample.send_timestamp_us - last_latency_warn_us[slot] > 1000000) {
+                        last_latency_warn_us[slot] = sample.send_timestamp_us;
+                        Logger::warn("Slot " + std::to_string(slot) + ": report sent " +
+                                     std::to_string(latency / 1000) + " ms after it was read (send loop delayed)");
                     }
                 }
 

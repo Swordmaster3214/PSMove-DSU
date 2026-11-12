@@ -154,6 +154,7 @@ private:
         bool identify_applied = false;  // Polling thread only: state last sent to the device
         int rumble_applied = 0;         // Polling thread only
         uint64_t last_report_us = 0;    // Polling thread only: last report (or integration) time
+        uint64_t last_poll_us = 0;      // Polling thread only: when this slot was last read
     };
     SlotStats stats_[Constants::MAX_CONTROLLERS];
 
