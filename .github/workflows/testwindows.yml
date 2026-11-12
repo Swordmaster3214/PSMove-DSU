@@ -2,18 +2,16 @@ name: Windows Test Build
 
 # Builds a Windows x64 binary for testing a branch.
 #
-# Runs on every push to a branch other than main, on pull requests into main,
-# and by hand from the Actions tab (GitHub only offers the "Run workflow"
-# button for workflows that already exist on main). The binary is attached to the run as an artifact.
+# Runs on pull requests into main (open a draft pull request to get test
+# binaries for a branch), or by hand from the Actions tab for any branch.
+# The binary is attached to the run as an artifact.
 # The checks live in .github/scripts/ci_binary.sh and are shared by all builds.
 
 on:
-  push:
-    branches-ignore: [main]
-    paths-ignore: ['**.md', 'LICENSE']
   # Pull requests into main must pass this check before they can be merged
-  # (required in the repository's ruleset). No paths-ignore here: a skipped
-  # required check never reports, which would block docs-only pull requests.
+  # (required in the repository's ruleset). No paths-ignore: a skipped required
+  # check never reports, which would block docs-only pull requests. There's no
+  # push trigger, so a pull request's commits aren't built twice.
   pull_request:
     branches: [main]
   workflow_dispatch:
