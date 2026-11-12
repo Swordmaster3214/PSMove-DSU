@@ -170,7 +170,7 @@ Before reporting, check existing issues for duplicates and go through the templa
 ```
 
 ### Review Process
-1. **Automated builds** must pass on all platforms
+1. **Automated builds** must pass on all platforms: a pull request into `main` can only be merged once the Linux x64, Windows x64, macOS x86_64 and macOS arm64 checks succeed
 2. **Code review** by maintainers
 3. **Performance validation** for timing-critical changes
 4. **Testing** on real hardware when possible
