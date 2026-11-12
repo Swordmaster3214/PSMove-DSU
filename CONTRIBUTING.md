@@ -118,35 +118,13 @@ This is a **real-time, low-latency** application. When contributing:
 
 ## Bug Reports
 
-### Before Reporting
-- Check existing issues for duplicates
-- Test with **verbose mode**: `./executable --verbose`
-- Try on **different platforms** if possible
+Open an issue with the **Bug report** template. It asks for:
 
-### Include in Bug Reports
-- **Platform**: OS version, architecture (x64/ARM)
-- **Controller Info**: Model, connection type (Bluetooth/USB)
-- **Verbose Logs**: Run with `--verbose` flag
-- **Latency Info**: Any high-latency warnings from logs
-- **Steps to Reproduce**: Detailed reproduction steps
+- **What happened**, what you expected, and steps to reproduce
+- **Setup**: OS, PSMove-DSU version (top left of the window), and emulator with its version
+- **Diagnostics**: in the GUI, optionally turn on **Verbose** in the **Log** tab, make the problem happen, then click **Copy diagnostics** and paste the result. It already contains the version, OS, controllers (model, connection, battery, report rate), emulator connections, button mapping and the recent log. With `--headless`, run with `--verbose` and paste the log instead.
 
-### Example Bug Report
-```
-**Platform**: Windows 11 x64
-**Controller**: PS Move Navigation Controller via Bluetooth
-**Issue**: Controller disconnects after 30 seconds
-
-**Verbose Log Output:**
-[ERROR] Controller in slot 0 became invalid, removing
-[WARN] Windows: Flushed 47 buffered packets from slot 0
-
-**Steps to Reproduce:**
-1. Pair controller using --pair mode
-2. Start DSU server
-3. Controller connects successfully  
-4. After ~30 seconds, controller disconnects
-5. Must restart server to reconnect
-```
+Before reporting, check existing issues for duplicates and go through the template's troubleshooting checklist (LED stays lit, controller and emulator show up in the GUI, only one DSU server using port 26760, re-pairing, `--linux-setup` on Linux).
 
 ## Feature Requests
 
@@ -204,7 +182,7 @@ This is a **real-time, low-latency** application. When contributing:
 - **Controller compatibility**: Support for new PlayStation Move variants
 - **Memory optimization**: Reducing CPU usage and memory footprint
 - **Cross-platform testing**: Ensuring consistent behavior across platforms
-- **Multiple controllers**: Enabling the use of multiple controllers
+- **Multiple controllers**: Testing 2-4 controllers in different emulators
 
 ### Medium Priority  
 - **Configuration system**: More flexible axis mapping and filtering
@@ -212,7 +190,6 @@ This is a **real-time, low-latency** application. When contributing:
 - **Documentation**: Setup guides, troubleshooting, API documentation
 
 ### Low Priority
-- **UI/GUI**: Currently command-line focused
 - **Protocol extensions**: DSU protocol is well-established
 - **Alternative controllers**: Focus is on PlayStation Move devices
 
@@ -230,7 +207,8 @@ This is a **real-time, low-latency** application. When contributing:
 - [ ] Controller discovery and connection
 - [ ] Data transmission to DSU clients (test with Cemu, Dolphin, etc.)
 - [ ] Multiple controller support (up to 4)
-- [ ] Controller disconnect/reconnect handling
+- [ ] Controller disconnect/reconnect handling (turn a controller off: its slot frees within ~2 s; turn it on: it returns to the same slot)
+- [ ] Rumble (DSU rumble messages) and Identify
 - [ ] No memory leaks during extended operation
 
 ### Performance Testing
@@ -240,9 +218,10 @@ This is a **real-time, low-latency** application. When contributing:
 
 # Look for these in logs:
 # - Processing latency < 1000µs (normal)
-# - No "High end-to-end latency" warnings  
-# - "Windows: Flushed" messages should be rare
+# - No "High end-to-end latency" warnings
 ```
+
+In the GUI's **Controllers** tab, "Queued reports (peak)" should stay at 1-2 and "Data age" well under 100 ms.
 
 ## Questions?
 
