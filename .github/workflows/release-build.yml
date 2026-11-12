@@ -1,8 +1,10 @@
 name: Build and Release
 
 on:
+  # "published" fires for a release published directly and for a draft that is
+  # published later; "created" doesn't fire for drafts at all.
   release:
-    types: [created]
+    types: [published]
   workflow_dispatch:
 
 permissions:
@@ -27,6 +29,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history and tags, so the GUI's version label reads e.g. v3.0.0
 
       - uses: actions/setup-python@v5
         with:
