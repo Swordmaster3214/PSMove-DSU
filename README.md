@@ -289,7 +289,7 @@ Log out and back in for changes to take effect
 
 ### Performance
 - **Low latency**: Direct USB/Bluetooth communication
-- **Multi-controller**: Support in the project is implemented for multiple controllers, but only one seems to be working 😅
+- **Multi-controller**: Support in the project is implemented for multiple controllers
 
 ## Contributing
 
