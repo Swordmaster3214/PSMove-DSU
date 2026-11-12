@@ -580,11 +580,10 @@ void PSMoveManager::scan_for_controllers_async() {
                       std::to_string(accounted) + " known - opening them");
     }
 
-    int opened = 0, already_held = 0;
+    int already_held = 0;
     for (int id = 0; id < 8; id++) {
         PSMove* controller = psmove_connect_by_id(id);
         if (!controller) continue;
-        opened++;
 
         std::string serial = get_serial_safe(controller);
         std::string conn_type = get_connection_type_string(controller);

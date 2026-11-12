@@ -16,7 +16,7 @@ Thank you for your interest in contributing to PSMove-DSU! This project provides
 ### Prerequisites
 
 - **C++17** compatible compiler
-- **CMake 3.18+**
+- **CMake 3.18+** (3.21+ to use `CMakePresets.json`)
 - **PSMoveAPI 4.0.12**, **Dear ImGui 1.91.9b** and **GLFW 3.4** (downloaded, built from source and statically linked by the build system - no manual install needed)
 
 To work on the GUI without a PS Move, run with `--simulate 2`: two virtual controllers appear in the last slots and stream motion and button presses to emulators.
@@ -47,7 +47,7 @@ brew install cmake
 git clone https://github.com/YOUR-USERNAME/PSMove-DSU.git
 cd PSMove-DSU
 
-# Build
+# Build (or: cmake --preset release && cmake --build --preset release)
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release
 ```
@@ -65,6 +65,16 @@ The executable will be created as:
 ./build/dsu_server_psmove_linux_x64 --headless --simulate 2 &
 python3 test/dsu_protocol_check.py
 ```
+
+The same check is available through CTest, which starts and stops the server for you. A `dev` preset builds with tests and warnings-as-errors enabled:
+
+```bash
+cmake --preset dev
+cmake --build --preset dev
+ctest --preset dev
+```
+
+The check assumes the two simulated controllers are the only ones present (slots 2 and 3), so unplug or turn off real PS Move controllers first, or the "all slots" checks will fail. The test also binds UDP port 26760, so stop any other running server. Other presets: `release`, `debug` and `headless` (no GUI). `-DDSU_BUILD_TESTS=ON` also builds the manual `DummyDSUServer` and `dummy_dsu_sinewave` clients (Linux/macOS) into `build/test/`.
 
 Every push to `main` and every pull request into `main` builds test binaries for Linux x64, Windows x64, macOS Intel and macOS Apple Silicon (the **Linux / Windows / macOS Test Build** workflows); open a draft pull request to get them for a work-in-progress branch, or start the workflows by hand from the **Actions** tab. Download the binaries from each workflow run's **Artifacts** section.
 

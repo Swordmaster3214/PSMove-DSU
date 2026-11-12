@@ -44,4 +44,7 @@
 test/**
 # ...except test files meant to be shared
 !test/dsu_protocol_check.py
+!test/run_protocol_check.py
+!test/CMakeLists.txt
 build/**
+build-*/**

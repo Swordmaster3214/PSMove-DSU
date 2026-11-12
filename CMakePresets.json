@@ -1,0 +1,49 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": { "major": 3, "minor": 21, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "release",
+      "displayName": "Release",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+    },
+    {
+      "name": "debug",
+      "displayName": "Debug",
+      "binaryDir": "${sourceDir}/build-debug",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+    },
+    {
+      "name": "dev",
+      "displayName": "Release with tests and warnings as errors",
+      "inherits": "release",
+      "binaryDir": "${sourceDir}/build-dev",
+      "cacheVariables": {
+        "DSU_BUILD_TESTS": "ON",
+        "DSU_WARNINGS_AS_ERRORS": "ON"
+      }
+    },
+    {
+      "name": "headless",
+      "displayName": "Release, console only (no GUI)",
+      "inherits": "release",
+      "binaryDir": "${sourceDir}/build-headless",
+      "cacheVariables": { "DSU_BUILD_GUI": "OFF" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "release",  "configurePreset": "release",  "configuration": "Release" },
+    { "name": "debug",    "configurePreset": "debug",    "configuration": "Debug" },
+    { "name": "dev",      "configurePreset": "dev",      "configuration": "Release" },
+    { "name": "headless", "configurePreset": "headless", "configuration": "Release" }
+  ],
+  "testPresets": [
+    {
+      "name": "dev",
+      "configurePreset": "dev",
+      "configuration": "Release",
+      "output": { "outputOnFailure": true }
+    }
+  ]
+}
