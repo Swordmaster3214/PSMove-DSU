@@ -40,9 +40,8 @@ Keep this file short and actionable. Focus on patterns and commands that help an
   - Debug/verbose: `./<exe> --verbose` to see latency logging and diagnostics.
 
 ## Tests / local protocol validation
-- A simple DSU test client exists in `test/dummy_dsu_sinewave.cpp` that implements the DSU protocol and prints debug info. Useful to validate server behavior without hardware:
-  - compile: `g++ -std=c++17 -O0 -o test/dummy test/dummy_dsu_sinewave.cpp` (requires standard socket headers)
-  - run: `./test/dummy` then start server and subscribe from a client.
+- Protocol check: `cmake --preset dev && cmake --build --preset dev && ctest --preset dev` starts the server with `--simulate 2` and runs `test/dsu_protocol_check.py` against it (real controllers must be disconnected; uses UDP port 26760).
+- `test/DummyDSUServer.cpp` and `test/dummy_dsu_sinewave.cpp` are archival proof-of-concept code and are not part of the build.
 
 ## Common maintenance tasks and how to approach them
 - Adding a new DSU message type:

@@ -126,7 +126,16 @@ Then unplug the cable and press the PS button. The red LED blinks, then stays li
 ```
 dsu_server_psmove/
 ├── CMakeLists.txt
+├── CMakePresets.json               # release / debug / dev / headless presets
 ├── README.md
+├── cmake/
+│   ├── PSMoveAPI.cmake            # Fetches and builds PSMoveAPI + hidapi (static)
+│   ├── ImGui.cmake                # Fetches and builds Dear ImGui + GLFW (static)
+│   ├── EmbedText.cmake            # Embeds the license texts in the executable
+│   └── GitVersion.cmake           # Writes the version header at build time
+├── test/
+│   ├── dsu_protocol_check.py      # DSU protocol check against a running server
+│   └── run_protocol_check.py      # Starts a simulated server and runs the check (CTest)
 ├── src/
 │   ├── main.cpp                    # Entry point and CLI parsing
 │   ├── dsu/
@@ -211,6 +220,29 @@ The Wayland packages are optional; without them the GUI uses X11 (XWayland). For
    ```bash
    ./dsu_server_psmove
    ```
+
+### Presets and Tests
+
+With CMake 3.21 or newer, `CMakePresets.json` replaces the manual steps above:
+
+```bash
+cmake --preset release && cmake --build --preset release
+```
+
+| Preset | What it does |
+|--------|--------------|
+| `release` | Release build in `build/` |
+| `debug` | Debug build in `build-debug/` |
+| `headless` | Release build without the GUI, in `build-headless/` |
+| `dev` | Release build in `build-dev/` with tests and warnings as errors |
+
+The `dev` preset also registers the DSU protocol check with CTest. It starts the server with two simulated controllers, runs `test/dsu_protocol_check.py` against it and shuts it down (disconnect real controllers first, and stop any other running server, since it uses UDP port 26760):
+
+```bash
+cmake --preset dev && cmake --build --preset dev && ctest --preset dev
+```
+
+Other options: `-DDSU_BUILD_TESTS=ON`, `-DDSU_WARNINGS_AS_ERRORS=ON` and `-DDSU_BUILD_GUI=OFF`. Without `-DCMAKE_BUILD_TYPE`, Makefile and Ninja builds default to Release.
 
 ### Building Offline / Custom PSMoveAPI Sources
 
