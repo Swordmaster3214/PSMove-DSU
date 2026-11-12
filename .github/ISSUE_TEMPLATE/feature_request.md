@@ -1,20 +1,23 @@
 ---
 name: Feature request
 about: Suggest an idea for PSMove-DSU
-title: "[FEATURE]"
+title: "[FEATURE] "
 labels: enhancement
 assignees: ''
 
 ---
 
-**Is your feature request related to a problem? Please describe.**
-A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
+## What problem would this solve?
+<!-- e.g. "When I play X in emulator Y, I can't ..." -->
 
-**Describe the solution you'd like**
-A clear and concise description of what you want to happen.
+## What would you like to happen?
 
-**Describe alternatives you've considered**
-A clear and concise description of any alternative solutions or features you've considered.
+## Alternatives you've considered
 
-**Additional context**
-Add any other context or screenshots about the feature request here.
+## Setup (if relevant)
+- **OS**:
+- **Emulator / game**:
+- **PSMove-DSU version**: <!-- shown at the top left of the window -->
+
+## Anything else?
+<!-- Screenshots, links to similar features elsewhere, ... -->
