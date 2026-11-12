@@ -181,8 +181,8 @@ else()
 endif()
 
 # ---------------------------------------------------------------------------
-# Tests (optional): the DSU protocol check against a simulated server, plus the
-# hand-run dummy DSU clients (POSIX sockets only). Run with: ctest --test-dir build
+# Tests (optional): the DSU protocol check against a simulated server.
+# Run with: ctest --test-dir build
 # ---------------------------------------------------------------------------
 option(DSU_BUILD_TESTS "Build the test clients and register CTest tests" OFF)
 if(DSU_BUILD_TESTS)

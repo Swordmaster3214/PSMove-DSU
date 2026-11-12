@@ -14,12 +14,3 @@ if(Python3_Interpreter_FOUND)
 else()
     message(STATUS "Tests: Python 3 not found, dsu_protocol_check not registered")
 endif()
-
-# Manual DSU clients for poking at a running server (POSIX sockets only).
-if(UNIX)
-    foreach(client DummyDSUServer dummy_dsu_sinewave)
-        add_executable(${client} ${client}.cpp)
-        set_target_properties(${client} PROPERTIES
-            RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/test)
-    endforeach()
-endif()

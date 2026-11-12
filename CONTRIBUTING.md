@@ -74,7 +74,7 @@ cmake --build --preset dev
 ctest --preset dev
 ```
 
-The check assumes the two simulated controllers are the only ones present (slots 2 and 3), so unplug or turn off real PS Move controllers first, or the "all slots" checks will fail. The test also binds UDP port 26760, so stop any other running server. Other presets: `release`, `debug` and `headless` (no GUI). `-DDSU_BUILD_TESTS=ON` also builds the manual `DummyDSUServer` and `dummy_dsu_sinewave` clients (Linux/macOS) into `build/test/`.
+The check assumes the two simulated controllers are the only ones present (slots 2 and 3), so unplug or turn off real PS Move controllers first, or the "all slots" checks will fail. The test also binds UDP port 26760, so stop any other running server. Other presets: `release`, `debug` and `headless` (no GUI).
 
 Every push to `main` and every pull request into `main` builds test binaries for Linux x64, Windows x64, macOS Intel and macOS Apple Silicon (the **Linux / Windows / macOS Test Build** workflows); open a draft pull request to get them for a work-in-progress branch, or start the workflows by hand from the **Actions** tab. Download the binaries from each workflow run's **Artifacts** section.
 
