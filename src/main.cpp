@@ -99,8 +99,7 @@ int main(int argc, char** argv) {
     if (linux_setup_only) return run_linux_setup();
 
     if (pair_nav) {
-        NavPairing nav;
-        return nav.run_pairing_mode();
+        return run_nav_pairing_cli();
     }
 
     // Handle pairing mode

@@ -28,7 +28,10 @@ const char* const kUdevRules =
     "SUBSYSTEM==\"hidraw\", KERNELS==\"0005:054C:0C5E.*\", MODE=\"0666\"\n"
     "\n"
     "# hidraw interface: USB (=0003), PS4 Move Motion Controller, CECH-ZCM2 (=054c:0c5e)\n"
-    "SUBSYSTEM==\"hidraw\", KERNELS==\"0003:054C:0C5E.*\", MODE=\"0666\"\n";
+    "SUBSYSTEM==\"hidraw\", KERNELS==\"0003:054C:0C5E.*\", MODE=\"0666\"\n"
+    "\n"
+    "# hidraw interface: USB (=0003), PS Move Navigation Controller (=054c:042f), needed by --pair-nav\n"
+    "SUBSYSTEM==\"hidraw\", KERNELS==\"0003:054C:042F.*\", MODE=\"0666\"\n";
 
 bool ask(const std::string& question, bool default_yes) {
     std::cout << question << (default_yes ? " [Y/n] " : " [y/N] ") << std::flush;
@@ -145,7 +148,7 @@ int run_linux_setup() {
         return 0;
     }
 
-    std::cout << "\nudev rules let you use controllers without root (they make PS Move hidraw devices world-accessible).\n";
+    std::cout << "\nudev rules let you use controllers without root (they make PS Move and Navigation controller hidraw devices world-accessible).\n";
     if (ask("Install them to " + std::string(kUdevPath) + "?", true)) install_udev_rules();
 
     std::cout << "\nMany distros' BlueZ rejects unbonded input devices like the PS Move. If your controller pairs but\n"

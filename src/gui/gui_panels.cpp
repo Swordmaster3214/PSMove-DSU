@@ -213,6 +213,7 @@ void GuiPanels::refresh() {
     server_status_ = server_.get_status();
     clients_ = server_.get_clients();
     pair_ = mgr.get_pair_status();
+    nav_status_ = nav_pair_.status();
 
     if (new_second) {
         for (int i = 0; i < Constants::MAX_CONTROLLERS; i++) {
@@ -1032,6 +1033,26 @@ void GuiPanels::draw_pairing_tab() {
                   : pair_.state == PairStatus::State::Succeeded ? "Paired" : "Pairing failed", lvl);
         ImGui::TextWrapped("%s", pair_.message.c_str());
         ImGui::EndChild();
+    }
+
+    ImGui::SeparatorText("Navigation controller (Nunchuk)");
+    ImGui::TextWrapped("The PS Move Navigation controller is paired the same way (a USB cable, then the PS button). "
+                       "It is not read by this program: once connected it appears as a normal gamepad, so add it as "
+                       "a second input source in your emulator, e.g. Dolphin's Nunchuk profile.");
+    {
+        bool nav_running = nav_status_.state == NavPairTask::State::Running;
+        ImGui::BeginDisabled(nav_running);
+        if (ImGui::Button("Pair Navigation controller")) nav_pair_.start();
+        ImGui::EndDisabled();
+        if (nav_status_.state != NavPairTask::State::Idle) {
+            Level lvl = nav_status_.state == NavPairTask::State::Succeeded ? Level::Ok
+                      : nav_status_.state == NavPairTask::State::Failed    ? Level::Err : Level::Warn;
+            ImGui::BeginChild("navpairstatus", ImVec2(0, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY);
+            status_chip(nav_running ? "Pairing..." : nav_status_.state == NavPairTask::State::Succeeded
+                                                         ? "Paired" : "Pairing failed", lvl);
+            ImGui::TextWrapped("%s", nav_status_.message.c_str());
+            ImGui::EndChild();
+        }
     }
 
     ImGui::SeparatorText("Connected over Bluetooth");

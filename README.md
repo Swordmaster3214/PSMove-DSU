@@ -107,7 +107,7 @@ PS | PS
 ### Controller Setup
 
 #### Navigation controller (Nunchuk)
-`--pair-nav` pairs a PS Move Navigation controller with this computer. It is not read by this server: once paired it appears as a normal gamepad, so add it as a second input source in Dolphin's Wii Remote / Nunchuk profile and let Dolphin's SDL read it, while this server supplies the Wiimote motion. Over USB you may need to press its PS button first. On Linux the command needs root, and BlueZ may already pair the controller by itself when you plug it in.
+Pair a PS Move Navigation controller with the **Pair Navigation controller** button on the Pairing tab, or from the console with `--pair-nav`. It is not read by this server: once paired it appears as a normal gamepad, so add it as a second input source in Dolphin's Wii Remote / Nunchuk profile and let Dolphin's SDL read it, while this server supplies the Wiimote motion. Over USB you may need to press its PS button first. On Linux it needs root until you run `sudo ./dsu_server_psmove --linux-setup` once, which installs udev rules that also cover the Navigation controller (replug it afterwards). BlueZ may also pair the controller by itself when you plug it in.
 
 #### Bluetooth Pairing
 **Note:** You will not need to do the following if you have already paired your controller with your computer using [PSMoveAPI](https://github.com/thp/psmoveapi)

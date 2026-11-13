@@ -2,6 +2,7 @@
 #include "config/config.hpp"
 #include "config/constants.hpp"
 #include "dsu/dsu_server.hpp"
+#include "psmove/nav_pairing.hpp"
 #include "psmove/psmove_manager.hpp"
 #include "utils/logging.hpp"
 #include <array>
@@ -64,6 +65,8 @@ private:
     ServerStatus server_status_;
     std::vector<ClientSnapshot> clients_;
     PairStatus pair_;
+    NavPairTask nav_pair_;
+    NavPairTask::Status nav_status_;
 
     // Derived once per second
     Clock::time_point last_rate_update_;
