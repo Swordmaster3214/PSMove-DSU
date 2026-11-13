@@ -154,6 +154,7 @@ set(SOURCES
     src/dsu/dsu_protocol.cpp
     src/psmove/psmove_manager.cpp
     src/psmove/psmove_pairing.cpp
+    src/psmove/nav_pairing.cpp
     src/psmove/linux_setup.cpp
     src/network/udp_server.cpp
     src/utils/logging.cpp
@@ -173,7 +174,8 @@ endif()
 add_executable(${EXECUTABLE_NAME} ${SOURCES})
 
 target_link_libraries(${EXECUTABLE_NAME} PRIVATE psmoveapi_static)
-target_include_directories(${EXECUTABLE_NAME} PRIVATE src ${DSU_GENERATED_DIR})
+target_include_directories(${EXECUTABLE_NAME} PRIVATE src ${DSU_GENERATED_DIR}
+    ${PSMOVEAPI_DIR}/src ${HIDAPI_DIR}/hidapi)  # psmove_port.h, hidapi.h
 add_dependencies(${EXECUTABLE_NAME} dsu_version)
 
 if(DSU_BUILD_GUI)

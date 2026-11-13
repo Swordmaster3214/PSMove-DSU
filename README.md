@@ -80,6 +80,7 @@ The headless mode uses the same file, so you can set things up in the GUI and th
 | --- | --- |
 | `--headless` | Run without the GUI (console only). Also used automatically when no display is available. |
 | `--pair` | Pair a USB-connected controller from the console |
+| `--pair-nav` | Pair a USB-connected PS Move Navigation controller (see below) |
 | `--verbose` | Detailed logs and latency diagnostics |
 | `--config <path>` | Use a different settings file |
 | `--map <p> <y> <r>` | Gyro source axis (0=X, 1=Y, 2=Z) for pitch, yaw and roll (overrides the settings file) |
@@ -104,6 +105,9 @@ T | R2
 PS | PS
 
 ### Controller Setup
+
+#### Navigation controller (Nunchuk)
+`--pair-nav` pairs a PS Move Navigation controller with this computer. It is not read by this server: once paired it appears as a normal gamepad, so add it as a second input source in Dolphin's Wii Remote / Nunchuk profile and let Dolphin's SDL read it, while this server supplies the Wiimote motion. Over USB you may need to press its PS button first. On Linux the command needs root, and BlueZ may already pair the controller by itself when you plug it in.
 
 #### Bluetooth Pairing
 **Note:** You will not need to do the following if you have already paired your controller with your computer using [PSMoveAPI](https://github.com/thp/psmoveapi)
