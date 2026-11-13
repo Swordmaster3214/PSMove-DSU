@@ -53,7 +53,9 @@ bool read_master(hid_device* dev, unsigned char out[6]) {
 
 const char* const kNextSteps =
     "Unplug the cable and press the PS button. Once it connects over Bluetooth it appears as a gamepad "
-    "(\"Navigation Controller\") that SDL-based programs such as Dolphin can use.";
+    "(\"Navigation Controller\") that SDL-based programs such as Dolphin can use. If it doesn't connect, "
+    "turn Bluetooth off and on (or restart your computer) for the pairing to take effect, then press the "
+    "PS button again.";
 
 NavPairResult fail(const std::string& msg) { return {false, msg}; }
 
@@ -128,7 +130,7 @@ NavPairResult NavPairing::pair(int timeout_ms, const std::atomic<bool>* cancel) 
 
     std::string msg_ok = "Paired with " + mac_string(host) + ". " + kNextSteps;
 #if defined(__linux__)
-    msg_ok += " Linux: if it won't connect, try `bluetoothctl trust <address>` or run --linux-setup.";
+    msg_ok += " Linux: if it still won't connect, try `bluetoothctl trust <address>` or run --linux-setup.";
 #endif
     return {true, msg_ok};
 }

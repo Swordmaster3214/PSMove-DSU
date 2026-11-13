@@ -107,7 +107,17 @@ PS | PS
 ### Controller Setup
 
 #### Navigation controller (Nunchuk)
-Pair a PS Move Navigation controller with the **Pair Navigation controller** button on the Pairing tab, or from the console with `--pair-nav`. It is not read by this server: once paired it appears as a normal gamepad, so add it as a second input source in Dolphin's Wii Remote / Nunchuk profile and let Dolphin's SDL read it, while this server supplies the Wiimote motion. Over USB you may need to press its PS button first. On Linux it needs root until you run `sudo ./dsu_server_psmove --linux-setup` once, which installs udev rules that also cover the Navigation controller (replug it afterwards). BlueZ may also pair the controller by itself when you plug it in.
+The PS Move Navigation controller is not read by this server: once paired it appears as a normal gamepad, so add it as a second input source in Dolphin's Wii Remote / Nunchuk profile and let Dolphin's SDL read it, while this server supplies the Wiimote motion.
+
+1. Connect it with a USB cable. You may need to press its PS button before it is detected.
+2. Click **Pair Navigation controller** on the **Pairing** tab, or from the console run:
+   ```bash
+   ./dsu_server_psmove --pair-nav
+   ```
+3. Unplug the cable and press the PS button.
+4. If it doesn't connect, turn Bluetooth off and on, or restart your computer, then press the PS button again. Pairing may not take effect until then.
+
+**Linux:** pairing the Navigation controller only needs access to the USB device, so it works without root once the udev rules from `sudo ./dsu_server_psmove --linux-setup` are installed (replug the controller afterwards). Without them, run `--pair-nav` with `sudo`. BlueZ may also pair the controller by itself when you plug it in.
 
 #### Bluetooth Pairing
 **Note:** You will not need to do the following if you have already paired your controller with your computer using [PSMoveAPI](https://github.com/thp/psmoveapi)
@@ -122,7 +132,7 @@ Then unplug the cable and press the PS button. The red LED blinks, then stays li
 - **LED keeps blinking:** the controller isn't paired with this computer, or the battery is low. Charge it over USB. Your system's Bluetooth device list should show a "Motion Controller" entry.
 - **Windows:** pairing may take several attempts. Use the Microsoft Bluetooth stack and remove third-party drivers such as MotionInJoy. May need to run as administrator.
 - **macOS:** if a PIN dialog appears when you press PS, close it and pair again. Since macOS Sierra the built-in adapter supports at most 2 controllers at once; use an external adapter for more.
-- **Linux:** pairing needs root (it registers the controller with BlueZ), so run `sudo ./dsu_server_psmove --pair` once. To use controllers without root, or if the controller pairs but won't connect (many distros' BlueZ rejects unbonded input devices), run `sudo ./dsu_server_psmove --linux-setup` (also offered at the end of `--pair` when run as root). It asks before installing the udev rules (built into the binary) and, separately, before setting `ClassicBondedOnly=false` in `/etc/bluetooth/input.conf`, which partially undoes a [Bluetooth security fix](https://github.com/advisories/GHSA-qjcj-xg77-6c32); it defaults to no and backs the file up first.
+- **Linux:** pairing a Move needs root (it registers the controller with BlueZ), so run `sudo ./dsu_server_psmove --pair` once; the udev rules don't change that. To use controllers without root (and to pair the Navigation controller without root), or if the controller pairs but won't connect (many distros' BlueZ rejects unbonded input devices), run `sudo ./dsu_server_psmove --linux-setup` (also offered at the end of `--pair` when run as root). It asks before installing the udev rules (built into the binary) and, separately, before setting `ClassicBondedOnly=false` in `/etc/bluetooth/input.conf`, which partially undoes a [Bluetooth security fix](https://github.com/advisories/GHSA-qjcj-xg77-6c32); it defaults to no and backs the file up first.
 
 ## Building from Source
 
@@ -277,7 +287,7 @@ Start with the GUI: the status line at the top shows whether the server is liste
 
 ### Controller Not Detected
 - Ensure the PS Move controller is properly paired
-- On Linux, you may need to run with `sudo` for USB access permissions
+- On Linux, install the udev rules with `sudo ./dsu_server_psmove --linux-setup` (see [Linux Permissions](#linux-permissions))
 - Check that no other applications are using the controller
 
 ### Connection Issues
@@ -292,12 +302,11 @@ Start with the GUI: the status line at the top shows whether the server is liste
 - On Windows, ensure you're using the correct Visual Studio toolchain
 
 ### Linux Permissions
-If you get permission errors accessing the controller:
-Add udev rules for PS Move controller
+If you get permission errors accessing a controller, install the udev rules (built into the program):
 ```bash
-sudo usermod -a -G plugdev $USER
+sudo ./dsu_server_psmove --linux-setup
 ```
-Log out and back in for changes to take effect
+They make the PS Move (USB and Bluetooth) and the Navigation controller (USB) accessible without root. Replug the controllers afterwards. With the rules installed, the server and Navigation controller pairing run without root. Pairing a Move still needs `sudo`, because it registers the controller with BlueZ.
 
 ## Technical Details
 

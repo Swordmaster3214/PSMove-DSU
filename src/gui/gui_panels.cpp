@@ -1039,6 +1039,12 @@ void GuiPanels::draw_pairing_tab() {
     ImGui::TextWrapped("The PS Move Navigation controller is paired the same way (a USB cable, then the PS button). "
                        "It is not read by this program: once connected it appears as a normal gamepad, so add it as "
                        "a second input source in your emulator, e.g. Dolphin's Nunchuk profile.");
+    ImGui::TextWrapped("Connect it with a USB cable, then click the button (it waits up to 30 seconds). Afterwards, "
+                       "unplug it and press the PS button. If it doesn't connect, turn Bluetooth off and on or "
+                       "restart your computer, then press PS again.");
+#if defined(__linux__)
+    ImGui::TextDisabled("Linux: needs the udev rules from --linux-setup (or root). With them, no root is needed.");
+#endif
     {
         bool nav_running = nav_status_.state == NavPairTask::State::Running;
         ImGui::BeginDisabled(nav_running);
@@ -1081,8 +1087,9 @@ void GuiPanels::draw_pairing_tab() {
     ImGui::TextWrapped("The built-in Bluetooth adapter supports at most 2 Move controllers at once on macOS Sierra and "
                        "later. For more, use an external Bluetooth adapter.");
 #else
-    ImGui::TextWrapped("Linux: pairing registers the controller with BlueZ, which needs root. If pairing fails, close "
-                       "this window and run once from a terminal:  sudo ./<this program> --pair");
+    ImGui::TextWrapped("Linux: pairing a Move registers it with BlueZ, which needs root even with the udev rules. If "
+                       "pairing fails, close this window and run once from a terminal:  sudo ./<this program> --pair  "
+                       "(The Navigation controller is different: with the udev rules it pairs without root.)");
     ImGui::TextWrapped("To use controllers without root, or if one pairs but won't connect (BlueZ may reject unbonded "
                        "input devices), run once from a terminal:  sudo ./<this program> --linux-setup  "
                        "It asks before installing udev rules and before changing ClassicBondedOnly in "
