@@ -49,7 +49,7 @@ jobs:
 
       # PSMoveAPI, Dear ImGui and GLFW are downloaded and built statically by CMake.
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+        run: cmake --preset release
 
       - name: Build
         run: cmake --build build --config Release -j "$(sysctl -n hw.ncpu)"

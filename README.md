@@ -169,7 +169,7 @@ dsu_server_psmove/
 ### Prerequisites
 
 #### All Platforms
-- **CMake** 3.18 or higher
+- **CMake** 3.21 or higher
 - **C++ compiler** with C++17 support
 - **Internet access on the first configure** - CMake downloads the PSMoveAPI 4.0.12, Dear ImGui 1.91.9b and GLFW 3.4 sources (pinned and hash-verified) and compiles them statically into the server. You do *not* need to install any of them yourself.
 
@@ -223,7 +223,7 @@ The Wayland packages are optional; without them the GUI uses X11 (XWayland). For
 
 ### Presets and Tests
 
-With CMake 3.21 or newer, `CMakePresets.json` replaces the manual steps above:
+`CMakePresets.json` replaces the manual steps above:
 
 ```bash
 cmake --preset release && cmake --build --preset release
@@ -295,7 +295,7 @@ Start with the GUI: the status line at the top shows whether the server is liste
 
 ### Build Issues
 - Make sure all dependencies are installed
-- Verify CMake version is 3.18 or higher
+- Verify CMake version is 3.21 or higher
 - On Windows, ensure you're using the correct Visual Studio toolchain
 
 ### Linux Permissions

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.18)
+cmake_minimum_required(VERSION 3.21)
 
 # Link the MSVC C/C++ runtime statically so the .exe does not require the
 # Visual C++ Redistributable on the user's machine. Must be set before project().

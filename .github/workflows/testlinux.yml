@@ -50,7 +50,7 @@ jobs:
             xvfb libgl1 libglx-mesa0 libgl1-mesa-dri
 
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+        run: cmake --preset release
 
       - name: Build
         run: cmake --build build --config Release -j "$(nproc)"

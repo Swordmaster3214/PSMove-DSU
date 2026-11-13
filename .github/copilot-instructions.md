@@ -27,7 +27,7 @@ Keep this file short and actionable. Focus on patterns and commands that help an
   - DATA subscriptions honor the request flags (all / slot / MAC) and expire after `SUBSCRIPTION_TIMEOUT_MS`; each client only receives the slots it registered. Dolphin relies on this (one socket per controller, no pad_id filtering).
 
 ## Build & run (exact steps)
-- Requirements: `cmake` (>=3.18), compiler with C++17. PSMoveAPI 4.0.12 is downloaded, built from source and linked statically by CMake (no manual install). On Linux you also need the dbus/bluez/udev dev packages (`libdbus-1-dev libbluetooth-dev libudev-dev`).
+- Requirements: `cmake` (>=3.21), compiler with C++17. PSMoveAPI 4.0.12 is downloaded, built from source and linked statically by CMake (no manual install). On Linux you also need the dbus/bluez/udev dev packages (`libdbus-1-dev libbluetooth-dev libudev-dev`).
 - Configure build (example):
   - mkdir build && cd build
   - cmake -DCMAKE_BUILD_TYPE=Release ..

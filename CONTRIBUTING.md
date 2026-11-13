@@ -16,7 +16,7 @@ Thank you for your interest in contributing to PSMove-DSU! This project provides
 ### Prerequisites
 
 - **C++17** compatible compiler
-- **CMake 3.18+** (3.21+ to use `CMakePresets.json`)
+- **CMake 3.21+**
 - **PSMoveAPI 4.0.12**, **Dear ImGui 1.91.9b** and **GLFW 3.4** (downloaded, built from source and statically linked by the build system - no manual install needed)
 
 To work on the GUI without a PS Move, run with `--simulate 2`: two virtual controllers appear in the last slots and stream motion and button presses to emulators.
