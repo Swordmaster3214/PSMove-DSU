@@ -44,7 +44,7 @@ brew install cmake
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR-USERNAME/PSMove-DSU.git
+git clone https://github.com/Swordmaster3214/PSMove-DSU.git
 cd PSMove-DSU
 
 # Build
