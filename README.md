@@ -179,7 +179,7 @@ sudo apt-get install libbluetooth-dev libdbus-1-dev libudev-dev pkg-config \
     libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxext-dev \
     libwayland-dev libxkbcommon-dev
 ```
-The Wayland packages are optional; without them the GUI uses X11 (XWayland). For a console-only build without any of the GUI packages, configure with `-DDSU_BUILD_GUI=OFF`.
+The Wayland packages are optional; without them the GUI uses X11 (XWayland). For a console-only build without any of the GUI packages, use `cmake --preset headless` (or configure with `-DDSU_BUILD_GUI=OFF`).
 
 #### macOS
 - Xcode command line tools (`xcode-select --install`)
@@ -195,39 +195,27 @@ The Wayland packages are optional; without them the GUI uses X11 (XWayland). For
    git clone https://github.com/Swordmaster3214/PSMove-DSU.git && cd PSMove-DSU
    ```
 
-2. **Create build directory**:
+2. **Configure and build** (from the repository root, on every platform):
    ```bash
-   mkdir build && cd build
+   cmake --preset release
+   cmake --build --preset release
    ```
 
-3. **Configure with CMake**:
-   #### Linux/macOS
-   ```bash
-   cmake -DCMAKE_BUILD_TYPE=Release ..
-   ```
-   #### Windows
-   ```bash
-   cmake ..
-   ```
+3. **Run the executable**, which is placed in `build/` with a platform suffix:
+   - Linux: `./build/dsu_server_psmove_linux_x64` (or `linux_arm64`)
+   - macOS: `./build/dsu_server_psmove_macos_arm64` (or `macos_x64`)
+   - Windows: `build\dsu_server_psmove_win64.exe`
 
-5. **Build the project**:
-   ```bash
-   cmake --build . --config Release
-   ```
+Other presets (debug, console-only, tests, CPU-tuned) are listed below. Without presets, the equivalent manual steps are:
 
-6. **Run the executable**:
-   The executable will be in the build directory
-   ```bash
-   ./dsu_server_psmove
-   ```
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
+```
 
 ### Presets and Tests
 
-`CMakePresets.json` replaces the manual steps above:
-
-```bash
-cmake --preset release && cmake --build --preset release
-```
+`CMakePresets.json` defines these presets (list them with `cmake --list-presets`). Use the same name for the configure and build steps, e.g. `cmake --preset dev && cmake --build --preset dev`:
 
 | Preset | What it does |
 |--------|--------------|
@@ -250,10 +238,11 @@ Other options: `-DDSU_ENABLE_LTO=OFF` (link-time optimisation is on by default f
 PSMoveAPI is built from source and linked statically, so end users of a release build do not need `psmoveapi.dll`, `libpsmoveapi.so`, or any other PSMoveAPI install. If you build without internet access, point CMake at local source trees instead of downloading them:
 
 ```bash
-cmake -DFETCHCONTENT_SOURCE_DIR_PSMOVEAPI=/path/to/psmoveapi-4.0.12 \
+cmake --preset release \
+      -DFETCHCONTENT_SOURCE_DIR_PSMOVEAPI=/path/to/psmoveapi-4.0.12 \
       -DFETCHCONTENT_SOURCE_DIR_HIDAPI=/path/to/hidapi \
       -DFETCHCONTENT_SOURCE_DIR_IMGUI=/path/to/imgui-1.91.9b \
-      -DFETCHCONTENT_SOURCE_DIR_GLFW=/path/to/glfw-3.4 ..
+      -DFETCHCONTENT_SOURCE_DIR_GLFW=/path/to/glfw-3.4
 ```
 
 (`hidapi` here is the [thp/hidapi](https://github.com/thp/hidapi) fork at commit `38681c7`, the revision PSMoveAPI 4.0.12 pins as a submodule.)

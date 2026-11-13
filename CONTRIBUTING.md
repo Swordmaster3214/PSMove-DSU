@@ -47,10 +47,12 @@ brew install cmake
 git clone https://github.com/YOUR-USERNAME/PSMove-DSU.git
 cd PSMove-DSU
 
-# Build (or: cmake --preset release && cmake --build --preset release)
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --config Release
+# Build
+cmake --preset release
+cmake --build --preset release
 ```
+
+See the README for the other presets (`debug`, `headless`, `dev`, `native`).
 
 The executable will be created as:
 - Linux: `dsu_server_psmove_linux_x64`
