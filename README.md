@@ -235,6 +235,7 @@ cmake --preset release && cmake --build --preset release
 | `debug` | Debug build in `build-debug/` |
 | `headless` | Release build without the GUI, in `build-headless/` |
 | `dev` | Release build in `build-dev/` with tests and warnings as errors |
+| `native` | Release build in `build-native/` tuned for your CPU with `-march=native` (plus LTO and `-O3`). The executable gets a `_native` suffix; it can crash with an illegal instruction on other CPUs, so don't share it |
 
 The `dev` preset also registers the DSU protocol check with CTest. It starts the server with two simulated controllers, runs `test/dsu_protocol_check.py` against it and shuts it down (disconnect real controllers first, and stop any other running server, since it uses UDP port 26760):
 

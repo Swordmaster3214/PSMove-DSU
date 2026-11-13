@@ -38,6 +38,33 @@ if(DSU_ENABLE_LTO)
     endif()
 endif()
 
+# Tune for the CPU doing the build (-march=native). The binary may crash with
+# an illegal instruction on other CPUs, so it is opt-in, never used for releases,
+# and the executable gets a "_native" suffix. Applies to third-party code too.
+option(DSU_NATIVE "Optimise for this machine's CPU (binary is not portable)" OFF)
+if(DSU_NATIVE)
+    include(CheckCXXCompilerFlag)
+    if(MSVC)
+        message(WARNING "DSU_NATIVE: MSVC has no equivalent of -march=native, ignoring")
+        set(DSU_NATIVE OFF)
+    else()
+        check_cxx_compiler_flag(-march=native DSU_HAS_MARCH_NATIVE)
+        check_cxx_compiler_flag(-mcpu=native  DSU_HAS_MCPU_NATIVE)  # Apple Silicon, some ARM
+        if(DSU_HAS_MARCH_NATIVE)
+            set(DSU_NATIVE_FLAG -march=native)
+        elseif(DSU_HAS_MCPU_NATIVE)
+            set(DSU_NATIVE_FLAG -mcpu=native)
+        else()
+            message(WARNING "DSU_NATIVE: compiler supports neither -march=native nor -mcpu=native, ignoring")
+            set(DSU_NATIVE OFF)
+        endif()
+    endif()
+endif()
+if(DSU_NATIVE)
+    message(STATUS "Native build: ${DSU_NATIVE_FLAG} (not portable to other CPUs)")
+    add_compile_options(${DSU_NATIVE_FLAG})
+endif()
+
 # compile_commands.json for clangd and other tooling (Makefile/Ninja generators
 # only; clangd finds it in build/ automatically).
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -77,6 +104,9 @@ endif()
 
 # Set the executable name with platform suffix
 set(EXECUTABLE_NAME "dsu_server_psmove_${PLATFORM_SUFFIX}")
+if(DSU_NATIVE)
+    set(EXECUTABLE_NAME "${EXECUTABLE_NAME}_native")
+endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
