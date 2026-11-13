@@ -242,7 +242,7 @@ The `dev` preset also registers the DSU protocol check with CTest. It starts the
 cmake --preset dev && cmake --build --preset dev && ctest --preset dev
 ```
 
-Other options: `-DDSU_BUILD_TESTS=ON`, `-DDSU_WARNINGS_AS_ERRORS=ON` and `-DDSU_BUILD_GUI=OFF`. Without `-DCMAKE_BUILD_TYPE`, Makefile and Ninja builds default to Release.
+Other options: `-DDSU_ENABLE_LTO=OFF` (link-time optimisation is on by default for Release), `-DDSU_BUILD_TESTS=ON`, `-DDSU_WARNINGS_AS_ERRORS=ON` and `-DDSU_BUILD_GUI=OFF`. Without `-DCMAKE_BUILD_TYPE`, Makefile and Ninja builds default to Release.
 
 ### Building Offline / Custom PSMoveAPI Sources
 

@@ -25,6 +25,19 @@ endif()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Link-time optimisation for Release builds (our code and the static third-party
+# libraries). Smaller and slightly faster; turn off if a toolchain misbehaves.
+option(DSU_ENABLE_LTO "Enable link-time optimisation in Release builds" ON)
+if(DSU_ENABLE_LTO)
+    include(CheckIPOSupported)
+    check_ipo_supported(RESULT DSU_LTO_SUPPORTED OUTPUT DSU_LTO_OUTPUT LANGUAGES C CXX)
+    if(DSU_LTO_SUPPORTED)
+        set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE ON)
+    else()
+        message(STATUS "LTO not supported by this toolchain, skipping: ${DSU_LTO_OUTPUT}")
+    endif()
+endif()
+
 # compile_commands.json for clangd and other tooling (Makefile/Ninja generators
 # only; clangd finds it in build/ automatically).
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -170,6 +183,15 @@ else()
     target_compile_options(${EXECUTABLE_NAME} PRIVATE $<$<CONFIG:Release>:-g>)
 endif()
 
+# Hardening for a network-facing server: stack protector, and fortified libc
+# calls (needs optimisation, hence Release only). -U first because some
+# distribution compilers already define _FORTIFY_SOURCE.
+if(NOT MSVC)
+    target_compile_options(${EXECUTABLE_NAME} PRIVATE -fstack-protector-strong)
+    target_compile_options(${EXECUTABLE_NAME} PRIVATE
+        $<$<CONFIG:Release>:-U_FORTIFY_SOURCE> $<$<CONFIG:Release>:-D_FORTIFY_SOURCE=2>)
+endif()
+
 # Warnings for our own code only (third-party targets are built with -w).
 option(DSU_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 if(MSVC)
@@ -193,6 +215,11 @@ if(DSU_BUILD_TESTS)
     enable_testing()
     add_subdirectory(test)
 endif()
+
+# `cmake --install build --prefix <dir>` puts the executable and licences in <dir>.
+include(GNUInstallDirs)
+install(TARGETS ${EXECUTABLE_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(FILES LICENSE THIRD_PARTY_LICENSES.md DESTINATION ${CMAKE_INSTALL_DOCDIR})
 
 # Print the final executable name for confirmation
 message(STATUS "Building executable: ${EXECUTABLE_NAME}")
