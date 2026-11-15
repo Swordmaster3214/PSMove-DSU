@@ -1,22 +1,27 @@
-## ⚠️ Notice:
-I am busy with school at the moment so I may not be able to provide updates on a normal cadence. I may pop in from time to time, but do not expect any sort of continuous support of this project for the time being.
-However, if you wish to help contribute to this project, feel free to do so! I am looking for help, especially when it comes to Windows programming because I use Linux. Any contributions you make will be greatly appreciated.
-
 # PSMove-DSU
 
-A cross-platform DSU (DualShock UDP) / Cemuhook server for PlayStation Move controllers, enabling motion controls in games and emulators that support the DSU protocol.
+[![Latest release](https://img.shields.io/github/v/release/Swordmaster3214/PSMove-DSU)](https://github.com/Swordmaster3214/PSMove-DSU/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/Swordmaster3214/PSMove-DSU/total)](https://github.com/Swordmaster3214/PSMove-DSU/releases)
+[![License: GPL v3](https://img.shields.io/badge/license-GPLv3-blue.svg)](LICENSE)
+
+**Use your PlayStation Move controllers for motion controls in Dolphin, Cemu and other emulators.** Pair the controller, run PSMove-DSU, and point your emulator at it.
+
+![PSMove-DSU moving the Dolphin pointer](docs/images/demo.gif)
+
+![The PSMove-DSU GUI](docs/images/gui.png)
 
 ## Overview
 
-PSMove-DSU bridges PlayStation Move controllers to applications that support the DSU/Cemuhook protocol, such as:
-- **Cemu** (Wii U emulator)
-- **Dolphin** (GameCube/Wii emulator)
-- **RPCS3** (PS3 emulator)
-- **Yuzu** (Nintendo Switch emulator)
-- **PCSX2** (PS2 emulator)
+PSMove-DSU is a DSU (DualShock UDP) / Cemuhook server for PlayStation Move controllers. It turns the Move's accelerometer, gyroscope and buttons into the standard DSU protocol, so any emulator with DSU motion support can use it. PS Move controllers are cheap, easy to find used, and have the motion sensors those emulators need.
+
+Works with emulators that have a DSU client, such as:
+- **Dolphin** (GameCube/Wii)
+- **Cemu** (Wii U)
+- **Eden / Azahar** and other Switch and 3DS emulators with DSU motion support
+- **RPCS3** (PS3) and **PCSX2** (PS2), where DSU motion input is available
 - Any application supporting motion controls via DSU
 
-The server translates PS Move controller input (accelerometer, gyroscope, and buttons) into the standardized DSU protocol, allowing these controllers to provide motion control functionality in supported games.
+> **Tested with Dolphin.** This project is based on the DSU client that Dolphin provides, so any emulator that follows the protocol should work. I haven't tested the others myself, though. If one doesn't work for you, please [open an issue](https://github.com/Swordmaster3214/PSMove-DSU/issues) (use **Copy diagnostics** in the GUI) and say which emulator and version you used.
 
 ## Features
 
@@ -30,29 +35,13 @@ The server translates PS Move controller input (accelerometer, gyroscope, and bu
 
 ## Quick Start
 
-### Using Pre-built Binaries
-
-1. **Download** the latest release for your platform:
-   - [Windows](https://github.com/Swordmaster3214/PSMove-DSU/releases/latest/)
-   - [macOS](https://github.com/Swordmaster3214/PSMove-DSU/releases/latest/)
-   - [Linux](https://github.com/Swordmaster3214/PSMove-DSU/releases/latest/)
-
-2. **Connect your PS Move controller** via Bluetooth
-
-3. **Run the executable** (a window opens; add `--headless` to run in the console only):
-   #### Windows
-   ```bash
-   ./dsu_server_psmove_windows_win64.exe
-   ```
-   #### macOS/Linux
-   ```bash
-   ./dsu_server_psmove_macos_x64
-   ```
-   ```bash
-   ./dsu_server_psmove_linux_x64
-   ```
-
-5. **Configure your emulator** to connect to `127.0.0.1:26760` (default DSU port)
+1. **Download** the [latest release](https://github.com/Swordmaster3214/PSMove-DSU/releases/latest/) for your platform (Windows, macOS or Linux).
+2. **Pair your PS Move controller** (the **Pairing** tab in the GUI, or see [Controller Setup](#controller-setup)), then connect it via Bluetooth.
+3. **Run the executable.** A window opens; add `--headless` to run in the console only:
+   - Windows: `dsu_server_psmove_windows_win64.exe`
+   - macOS: `./dsu_server_psmove_macos_x64`
+   - Linux: `./dsu_server_psmove_linux_x64`
+4. **Configure your emulator** to connect to `127.0.0.1:26760` (the default DSU port). See [Emulator Setup](#emulator-setup).
 
 ### The GUI
 
@@ -136,50 +125,6 @@ Then unplug the cable and press the PS button. The red LED blinks, then stays li
 
 ## Building from Source
 
-### File structure
-```
-dsu_server_psmove/
-├── CMakeLists.txt
-├── CMakePresets.json               # release / debug / dev / headless presets
-├── README.md
-├── cmake/
-│   ├── PSMoveAPI.cmake            # Fetches and builds PSMoveAPI + hidapi (static)
-│   ├── ImGui.cmake                # Fetches and builds Dear ImGui + GLFW (static)
-│   ├── EmbedText.cmake            # Embeds the license texts in the executable
-│   └── GitVersion.cmake           # Writes the version header at build time
-├── test/
-│   ├── dsu_protocol_check.py      # DSU protocol check against a running server
-│   └── run_protocol_check.py      # Starts a simulated server and runs the check (CTest)
-├── src/
-│   ├── main.cpp                    # Entry point and CLI parsing
-│   ├── dsu/
-│   │   ├── dsu_server.hpp         # DSU server interface
-│   │   ├── dsu_server.cpp         # DSU server implementation
-│   │   ├── dsu_protocol.hpp       # DSU protocol definitions
-│   │   └── dsu_protocol.cpp       # DSU protocol implementation
-│   ├── psmove/
-│   │   ├── psmove_manager.hpp     # PSMove controller manager
-│   │   ├── psmove_manager.cpp     # PSMove controller implementation
-│   │   ├── psmove_pairing.hpp     # Pairing functionality
-│   │   └── psmove_pairing.cpp     # Pairing implementation
-│   ├── network/
-│   │   ├── udp_server.hpp         # UDP networking interface
-│   │   └── udp_server.cpp         # UDP networking implementation
-│   ├── gui/
-│   │   ├── gui_app.hpp/.cpp       # Window, fonts and render loop (Dear ImGui + GLFW)
-│   │   └── gui_panels.hpp/.cpp    # The GUI tabs
-│   ├── utils/
-│   │   ├── logging.hpp            # Logging utilities
-│   │   ├── logging.cpp            # Logging implementation
-│   │   ├── platform.hpp           # Platform-specific definitions
-│   │   ├── signal_handler.hpp     # Signal handling utilities
-│   │   └── signal_handler.cpp     # Signal handling implementation
-│   └── config/
-│       ├── constants.hpp          # Global constants
-│       ├── config.hpp             # Configuration management
-│       ├── config_file.hpp/.cpp   # Settings file load/save
-│       └── mapping.hpp/.cpp       # Button and axis mapping definitions
-```
 ### Prerequisites
 
 #### All Platforms
@@ -270,16 +215,16 @@ The server runs on `127.0.0.1:26760` by default, which is the standard DSU port.
 ### Emulator Setup
 
 #### Cemu
-1. Go to **Options** → **GamePad Motion Source** → **DSU1**
-2. Set server IP to `127.0.0.1` and port to `26760`
+1. Go to **Options** → **Input settings**
+2. Click **+**, and set the API to DSUController.
 
 #### Dolphin
-1. Go to **Controllers** → **Configure** → **Motion Input**
-2. Set source to **DSU** with server `127.0.0.1:26760`
+1. Go to **Controllers** → **Common** → **Alternate Input Sources**
+2. Set source to **DSU Client** with server `127.0.0.1:26760`
 
-#### Yuzu
-1. Go to **Configure** → **Controls** → **Advanced**
-2. Enable **Motion** and set to **DSU** with `127.0.0.1:26760`
+#### Eden
+1. Go to **Emulation** → **Configure** → **Controls**
+2. Set the input device to **Motion Controller N**, where N is the number of the controller you would like to set.
 
 ## Troubleshooting
 
@@ -324,11 +269,13 @@ They make the PS Move (USB and Bluetooth) and the Navigation controller (USB) ac
 
 ### Performance
 - **Low latency**: Direct USB/Bluetooth communication
-- **Multi-controller**: Support in the project is implemented for multiple controllers
+- **Multi-controller**: Several controllers can be connected at once, each in its own slot. This works on my setup; if it doesn't on yours, please [open an issue](https://github.com/Swordmaster3214/PSMove-DSU/issues) with the diagnostics report.
 
 ## Contributing
 
 Contributions are welcome! Please feel free to submit pull requests, report issues, or suggest improvements.
+
+**Help wanted: Windows and macOS.** I develop on Linux, so testing and fixes on Windows and macOS are especially appreciated. I maintain this project alongside school, so replies and releases may sometimes be slow, but pull requests and bug reports are read.
 
 ### Development Setup
 1. Fork the repository

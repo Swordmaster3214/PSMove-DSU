@@ -121,6 +121,18 @@ This is a **real-time, low-latency** application. When contributing:
 - **Measure latency impact** of changes
 - **Maintain 250Hz polling rate** (4ms intervals)
 
+### Project Layout
+
+- `src/main.cpp`: entry point and command-line parsing
+- `src/dsu/`: DSU protocol definitions and the server
+- `src/psmove/`: controller manager and pairing
+- `src/network/`: UDP networking
+- `src/gui/`: Dear ImGui + GLFW window and the GUI tabs
+- `src/config/`: constants, settings file and button/axis mapping
+- `src/utils/`: logging, platform definitions and signal handling
+- `cmake/`: dependency fetching (PSMoveAPI, ImGui, GLFW), license embedding and version header
+- `test/`: DSU protocol check, run by CTest with the `dev` preset
+
 ### Key Architecture Principles
 
 1. **Background Operations**: Slow operations (controller scanning) run in background threads
