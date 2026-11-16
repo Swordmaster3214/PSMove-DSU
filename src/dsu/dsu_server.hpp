@@ -5,6 +5,7 @@
 #include "psmove/psmove_manager.hpp"
 #include "dsu/dsu_protocol.hpp"
 #include <array>
+#include <cstddef>
 #include <chrono>
 #include <vector>
 #include <mutex>

@@ -1,5 +1,6 @@
 #pragma once
 #include "utils/platform.hpp"
+#include <cstddef>
 #include <vector>
 #include <functional>
 #include <atomic>
