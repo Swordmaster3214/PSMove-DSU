@@ -1,6 +1,7 @@
 name: Windows Test Build
 
-# Builds a Windows x64 binary for testing a branch.
+# Builds Windows x64 and arm64 binaries for testing a branch. Only "Windows x64"
+# is a required check; arm64 is informational.
 #
 # Runs on every push to main, on pull requests into main (open a draft pull
 # request to get test binaries for a branch), and by hand from the Actions tab
@@ -33,8 +34,17 @@ defaults:
 
 jobs:
   build-windows:
-    name: Windows x64
-    runs-on: windows-latest
+    # The job name must stay "Windows x64" for the required check in the ruleset.
+    name: Windows ${{ matrix.arch }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            os: windows-latest
+          - arch: arm64
+            os: windows-11-arm
 
     steps:
       - uses: actions/checkout@v4
@@ -65,7 +75,7 @@ jobs:
           mkdir -p dist
           cp "${{ steps.exe.outputs.path }}" dist/
           cat > dist/README-Windows.txt <<'EOF'
-          PSMove-DSU test build for Windows x64, commit ${{ github.sha }}
+          PSMove-DSU test build for Windows ${{ matrix.arch }}, commit ${{ github.sha }}
 
           This build is not signed. If SmartScreen warns about it, click
           "More info" and then "Run anyway".
