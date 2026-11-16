@@ -3,6 +3,8 @@
 [![Latest release](https://img.shields.io/github/v/release/Swordmaster3214/PSMove-DSU)](https://github.com/Swordmaster3214/PSMove-DSU/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/Swordmaster3214/PSMove-DSU/total)](https://github.com/Swordmaster3214/PSMove-DSU/releases)
 [![License: GPL v3](https://img.shields.io/badge/license-GPLv3-blue.svg)](LICENSE)
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/Swordmaster3214/PSMove-DSU/testlinux.yml)
+
 
 **Use your PlayStation Move controllers for motion controls in Dolphin, Cemu and other emulators.** Pair the controller, run PSMove-DSU, and point your emulator at it.
 
