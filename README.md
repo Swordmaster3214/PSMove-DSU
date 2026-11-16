@@ -38,9 +38,9 @@ Works with emulators that have a DSU client, such as:
 1. **Download** the [latest release](https://github.com/Swordmaster3214/PSMove-DSU/releases/latest/) for your platform (Windows, macOS or Linux).
 2. **Pair your PS Move controller** (the **Pairing** tab in the GUI, or see [Controller Setup](#controller-setup)), then connect it via Bluetooth.
 3. **Run the executable.** A window opens; add `--headless` to run in the console only:
-   - Windows: `dsu_server_psmove_windows_win64.exe`
-   - macOS: `./dsu_server_psmove_macos_x64`
-   - Linux: `./dsu_server_psmove_linux_x64`
+   - Windows: `dsu_server_psmove_win64.exe` (ARM64: `dsu_server_psmove_win_arm64.exe`)
+   - macOS: `./dsu_server_psmove_macos_arm64` (Apple Silicon) or `./dsu_server_psmove_macos_x64` (Intel)
+   - Linux: `./dsu_server_psmove_linux_x64` (ARM64: `./dsu_server_psmove_linux_arm64`)
 4. **Configure your emulator** to connect to `127.0.0.1:26760` (the default DSU port). See [Emulator Setup](#emulator-setup).
 
 ### The GUI

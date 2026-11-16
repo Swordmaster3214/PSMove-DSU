@@ -1,6 +1,7 @@
 name: Linux Test Build
 
-# Builds a Linux x64 binary for testing a branch.
+# Builds Linux x64 and arm64 binaries for testing a branch. Only "Linux x64"
+# is a required check; arm64 is informational.
 #
 # Runs on every push to main, on pull requests into main (open a draft pull
 # request to get test binaries for a branch), and by hand from the Actions tab
@@ -29,8 +30,17 @@ concurrency:
 
 jobs:
   build-linux:
-    name: Linux x64
-    runs-on: ubuntu-latest
+    # The job name must stay "Linux x64" for the required check in the ruleset.
+    name: Linux ${{ matrix.arch }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            os: ubuntu-latest
+          - arch: arm64
+            os: ubuntu-24.04-arm
 
     steps:
       - uses: actions/checkout@v4
@@ -71,7 +81,7 @@ jobs:
           mkdir -p dist
           cp "${{ steps.exe.outputs.path }}" dist/
           cat > dist/README-Linux.txt <<EOF
-          PSMove-DSU test build for Linux x64, commit ${{ github.sha }}
+          PSMove-DSU test build for Linux ${{ matrix.arch }}, commit ${{ github.sha }}
 
           Needs glibc ${GLIBC#GLIBC_} or newer, plus libbluetooth, libdbus-1 and libudev
           (installed on most desktop distributions). The GUI uses X11 or Wayland; without

@@ -103,13 +103,16 @@ inspect_windows() {
     local exe="$1" vswhere dumpbin deps machine
     vswhere="/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe"
     [ -f "$vswhere" ] || fail "vswhere.exe not found; can't locate dumpbin"
-    dumpbin="$("$vswhere" -latest -products '*' -find 'VC/Tools/MSVC/**/bin/Hostx64/x64/dumpbin.exe' | head -n 1 | tr -d '\r')"
+    dumpbin="$("$vswhere" -latest -products '*' -find 'VC/Tools/MSVC/**/bin/Host*/*/dumpbin.exe' | head -n 1 | tr -d '\r')"
     [ -n "$dumpbin" ] || fail "dumpbin.exe not found"
 
     machine="$("$dumpbin" //headers "$exe" | grep -i 'machine (' | head -n 1)"
     echo "Machine: $machine"
-    case "$(uname -m)" in
-        x86_64) echo "$machine" | grep -q 'x64' || fail "Expected an x64 binary" ;;
+    # Git Bash on an ARM64 runner can itself be an emulated x86_64 build, so
+    # uname -m isn't reliable there; prefer the runner's own architecture.
+    case "$(echo "${RUNNER_ARCH:-$(uname -m)}" | tr 'A-Z' 'a-z')" in
+        x64|x86_64) echo "$machine" | grep -q 'x64' || fail "Expected an x64 binary" ;;
+        arm64|aarch64) echo "$machine" | grep -qi 'ARM64' || fail "Expected an ARM64 binary" ;;
     esac
 
     section "DLL dependencies"

@@ -1,11 +1,17 @@
 name: Build and Release
 
 on:
-  # "published" fires for a release published directly and for a draft that is
-  # published later; "created" doesn't fire for drafts at all.
-  release:
-    types: [published]
+  # Pushing a v* tag builds every platform and attaches the binaries to a DRAFT
+  # release. Review the draft, then publish it by hand.
+  push:
+    tags: ['v*']
+  # Re-run for an existing tag (e.g. after fixing the workflow).
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to build and attach to a draft release (e.g. v3.1.0)'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -22,6 +28,8 @@ jobs:
           - os: macos-15-intel   # x86_64 (macos-13 runners have been retired)
           - os: macos-latest     # arm64
           - os: windows-latest
+          - os: ubuntu-22.04-arm # arm64
+          - os: windows-11-arm   # arm64
 
     defaults:
       run:
@@ -30,6 +38,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.tag || github.ref }}
           fetch-depth: 0  # full history and tags, so the GUI's version label reads e.g. v3.0.0
 
       - uses: actions/setup-python@v5
@@ -80,50 +89,34 @@ jobs:
         timeout-minutes: 2
         run: .github/scripts/ci_binary.sh gui "${{ steps.artifact.outputs.path }}"
 
-      - name: Upload to release (on release event)
-        if: github.event_name == 'release'
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: bin-${{ matrix.os }}
+          path: artifacts/${{ steps.artifact.outputs.name }}
+          if-no-files-found: error
+
+  # One job creates the release, so the parallel builds can't race to create
+  # several drafts for the same tag.
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: bin-*
+          merge-multiple: true
+          path: artifacts
+
+      - name: List binaries
+        run: ls -l artifacts
+
+      - name: Create draft release
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/${{ steps.artifact.outputs.name }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Get latest release (on workflow_dispatch)
-        if: github.event_name == 'workflow_dispatch'
-        id: latest_release
-        shell: bash
-        run: |
-          # Try to get the latest release
-          if LATEST_RELEASE=$(gh api repos/${{ github.repository }}/releases/latest --jq '.tag_name' 2>/dev/null); then
-            echo "Found latest release: $LATEST_RELEASE"
-            echo "tag_name=$LATEST_RELEASE" >> $GITHUB_OUTPUT
-            echo "exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "No releases found - will create a new one"
-            echo "exists=false" >> $GITHUB_OUTPUT
-            echo "tag_name=v1.0.0" >> $GITHUB_OUTPUT
-          fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create release if none exists (on workflow_dispatch)
-        if: github.event_name == 'workflow_dispatch' && steps.latest_release.outputs.exists == 'false'
-        shell: bash
-        run: |
-          gh release create ${{ steps.latest_release.outputs.tag_name }} \
-            --title "Release ${{ steps.latest_release.outputs.tag_name }}" \
-            --notes "Automated release created by workflow dispatch" \
-            --repo ${{ github.repository }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload to release (on workflow_dispatch)
-        if: github.event_name == 'workflow_dispatch'
-        shell: bash
-        run: |
-          gh release upload ${{ steps.latest_release.outputs.tag_name }} \
-            "artifacts/${{ steps.artifact.outputs.name }}" \
-            --repo ${{ github.repository }} \
-            --clobber
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          draft: true
+          files: artifacts/*
+          fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
