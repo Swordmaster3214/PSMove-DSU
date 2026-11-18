@@ -1,0 +1,43 @@
+name: Feature request
+description: Suggest an idea for PSMove-DSU
+title: "[FEATURE] "
+labels: ["enhancement"]
+type: feature
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      placeholder: 'e.g. "When I play X in emulator Y, I can''t ..."'
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: What would you like to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've considered
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      description: If relevant.
+  - type: input
+    id: emulator-game
+    attributes:
+      label: Emulator / game
+      description: If relevant.
+  - type: input
+    id: version
+    attributes:
+      label: PSMove-DSU version
+      description: Shown at the top left of the window.
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else?
+      description: Screenshots, links to similar features elsewhere, ...

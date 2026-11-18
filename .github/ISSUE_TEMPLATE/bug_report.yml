@@ -1,0 +1,97 @@
+name: Bug report
+description: Something in PSMove-DSU doesn't work as expected
+title: "[BUG] "
+labels: ["bug"]
+assignees:
+  - Swordmaster3214
+type: bug
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      placeholder: e.g. Windows 11, Ubuntu 24.04, macOS 14 (Apple Silicon)
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: PSMove-DSU version
+      description: Shown at the top left of the window.
+      placeholder: e.g. v3.0.0
+    validations:
+      required: true
+  - type: input
+    id: emulator
+    attributes:
+      label: Emulator and version
+      placeholder: e.g. Dolphin 2412, Cemu 2.4
+    validations:
+      required: true
+  - type: input
+    id: emulator-location
+    attributes:
+      label: Emulator on the same computer?
+      description: If not, include the server's and emulator's IP addresses.
+      placeholder: yes / no
+  - type: dropdown
+    id: running-with
+    attributes:
+      label: Running with
+      options:
+        - GUI (default)
+        - --headless
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: |
+        **Using the GUI (recommended):**
+        1. Optional, for more detail: open the Log tab and turn on "Verbose".
+        2. Make the problem happen.
+        3. Click "Copy diagnostics" at the top right and paste the result below. It includes your version, OS, controllers, emulator connections, button mapping and the recent log.
+
+        **Using --headless:** run with `--verbose`, make the problem happen, and paste the log output below, including some lines from before the problem.
+      render: text
+  - type: checkboxes
+    id: tried
+    attributes:
+      label: What have you tried?
+      options:
+        - label: The controller's red LED stays lit (not blinking) when it's connected
+        - label: The controller appears on the **Controllers** tab
+        - label: The emulator appears on the **Emulators** tab
+        - label: Only one DSU server is running (no DS4Windows, BetterJoy or second copy of PSMove-DSU using port 26760)
+        - label: Re-paired the controller (**Pairing** tab, or `--pair`)
+        - label: "Linux: ran `sudo ./dsu_server_psmove_linux_x64 --linux-setup`"
+        - label: Tried another emulator that supports DSU
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else?
+      description: Screenshots, other Bluetooth devices or controller software running, recent system changes...
