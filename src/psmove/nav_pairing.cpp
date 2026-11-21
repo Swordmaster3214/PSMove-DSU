@@ -1,4 +1,5 @@
 #include "psmove/nav_pairing.hpp"
+#include "psmove/psmove_manager.hpp"
 #include "utils/logging.hpp"
 #include <hidapi.h>
 #include <psmove.h>
@@ -88,7 +89,6 @@ NavPairResult NavPairing::pair(int timeout_ms, const std::atomic<bool>* cancel) 
     }
 
     if (!dev) {
-        hid_exit();
         if (cancelled(cancel)) return fail("Cancelled.");
         if (found_but_unopenable) {
 #if defined(__linux__)
@@ -108,8 +108,7 @@ NavPairResult NavPairing::pair(int timeout_ms, const std::atomic<bool>* cancel) 
         Logger::info("Navigation controller: current Bluetooth master " + mac_string(cur));
         if (std::memcmp(cur, host, 6) == 0) {
             hid_close(dev);
-            hid_exit();
-            return {true, std::string("The controller is already paired with this computer. ") + kNextSteps};
+                        return {true, std::string("The controller is already paired with this computer. ") + kNextSteps};
         }
     }
 
@@ -118,15 +117,13 @@ NavPairResult NavPairing::pair(int timeout_ms, const std::atomic<bool>* cancel) 
     Logger::debug("hid_send_feature_report returned " + std::to_string(res));
     if (res < 0) {
         hid_close(dev);
-        hid_exit();
-        return fail("Writing the pairing data to the controller failed.");
+                return fail("Writing the pairing data to the controller failed.");
     }
 
     unsigned char after[6];
     bool verified = read_master(dev, after) && std::memcmp(after, host, 6) == 0;
     hid_close(dev);
-    hid_exit();
-    if (!verified) return fail("The controller did not keep the new address (read-back differs). Replug it and try again.");
+        if (!verified) return fail("The controller did not keep the new address (read-back differs). Replug it and try again.");
 
     std::string msg_ok = "Paired with " + mac_string(host) + ". " + kNextSteps;
 #if defined(__linux__)
@@ -163,7 +160,9 @@ void NavPairTask::start() {
     if (thread_.joinable()) thread_.join();
     cancel_ = false;
     thread_ = std::thread([this] {
+        manager_.pause_scanning();
         NavPairResult r = NavPairing::pair(30000, &cancel_);
+        manager_.resume_scanning();
         std::lock_guard<std::mutex> lk(mutex_);
         status_.state = r.ok ? State::Succeeded : State::Failed;
         status_.message = r.message;

@@ -7,6 +7,7 @@
 #include <mutex>
 #include <atomic>
 #include <optional>
+#include <type_traits>
 #include <string>
 #include <vector>
 
@@ -86,6 +87,11 @@ public:
     void request_pair(const std::string& serial);
     PairStatus get_pair_status();
     void request_scan() { full_scan_requested_.store(true); scan_requested_.store(true); }
+    // Stops the background scanner from touching HID devices (waits for a scan
+    // in progress to finish), e.g. while another part of the program uses
+    // hidapi directly. Calls nest; each pause_scanning() needs a resume_scanning().
+    void pause_scanning();
+    void resume_scanning();
 
 private:
     void thread_main();
@@ -105,21 +111,34 @@ private:
     void scan_for_controllers_async();
     void integrate_scanned_controller(PSMove* controller, const std::string& serial, int target_slot);
     void integrate_pending_controllers();
+    // Latest sample per slot: written only by the polling thread, read by the
+    // send thread and the GUI without locking (see SampleCell).
     void publish_sample(int slot, const MoveSample& s);
+    void clear_sample(int slot);
+    bool read_sample(int slot, MoveSample& out) const;
 
     void remove_controller(int slot, const std::string& reason);
     int choose_slot_for(const std::string& serial);
 
     PSMove* controllers_[Constants::MAX_CONTROLLERS];
-    bool has_data_[Constants::MAX_CONTROLLERS];
     // Serial of the last controller in each slot, so a controller that drops out
     // and comes back gets its old slot (player) again. Guarded by mtx_.
     std::string last_serial_[Constants::MAX_CONTROLLERS];
 
-    // OPTIMIZATION: Lock-free double buffering for sample data
-    MoveSample samples_[Constants::MAX_CONTROLLERS][2];  // Double buffer per controller
-    std::atomic<int> current_buffer_[Constants::MAX_CONTROLLERS];  // Which buffer is current
-    std::atomic<MoveSample*> latest_atomic_[Constants::MAX_CONTROLLERS];  // Atomic pointer to current data
+    // Seqlock: the writer makes `seq` odd, stores the words, then makes it even
+    // again; a reader retries if `seq` was odd or changed while it copied. The
+    // sample lives in atomic words so a concurrent copy is never a data race,
+    // and the writer (the real-time polling thread) never waits for a reader.
+    struct SampleCell {
+        static_assert(std::is_trivially_copyable<MoveSample>::value, "MoveSample is copied word by word");
+        static constexpr size_t WORDS = (sizeof(MoveSample) + 7) / 8;
+        std::atomic<uint32_t> seq{0};
+        std::atomic<bool> valid{false};
+        std::atomic<uint64_t> words[WORDS] = {};
+    };
+    SampleCell samples_[Constants::MAX_CONTROLLERS];
+    // Send thread only: slot whose sample is stale has been reported (verbose log).
+    bool stale_logged_[Constants::MAX_CONTROLLERS] = {};
 
     std::thread worker_;
     std::atomic<bool> running_;
@@ -133,7 +152,8 @@ private:
     std::atomic<bool> full_scan_requested_{true};
     int unusable_devices_ = 0;  // Scanner thread only: listed devices the last full scan couldn't use
     std::atomic<bool> scanning_{false};
-    std::atomic<bool> pause_scan_{false};
+    std::atomic<int> pause_scan_{0};  // Nesting count, see pause_scanning()
+    std::mutex scan_mutex_;           // Held by the scanner for the length of a scan
     std::mutex pending_controllers_mutex_;
 
     struct PendingController {

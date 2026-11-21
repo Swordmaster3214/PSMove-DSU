@@ -6,6 +6,7 @@
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <vector>
 
 #ifdef _WIN32
@@ -50,9 +51,6 @@ const char* model_string(PSMove* controller) {
 PSMoveManager::PSMoveManager() : running_(false) {
     for (int i = 0; i < Constants::MAX_CONTROLLERS; i++) {
         controllers_[i] = nullptr;
-        has_data_[i] = false;
-        current_buffer_[i].store(0);
-        latest_atomic_[i].store(nullptr);
     }
 }
 
@@ -141,7 +139,7 @@ void PSMoveManager::stop() {
             psmove_disconnect(controllers_[i]);
             controllers_[i] = nullptr;
         }
-        latest_atomic_[i].store(nullptr);
+        clear_sample(i);
         stats_[i].connected = false;
     }
 
@@ -163,21 +161,25 @@ std::optional<MoveSample> PSMoveManager::get_latest_for_slot(int slot) {
         return {};
     }
 
-    // OPTIMIZATION: Use atomic access instead of mutex
-    MoveSample* current = latest_atomic_[slot].load(std::memory_order_acquire);
-    if (!current) {
+    MoveSample sample;
+    if (!read_sample(slot, sample)) {
+        stale_logged_[slot] = false;
         return {};
     }
 
-    // Check data freshness
-    auto now = steady_now_us();
-
-    if (now - current->timestamp_us > 100000) { // 100ms threshold for stale data warning
-        Logger::debug("Potentially stale data for slot " + std::to_string(slot) +
-                     " (age: " + std::to_string((now - current->timestamp_us) / 1000) + "ms)");
+    // Report data going stale once per episode, not on every send.
+    uint64_t now = steady_now_us();
+    uint64_t age = now > sample.timestamp_us ? now - sample.timestamp_us : 0;
+    if (age > 100000) {
+        if (!stale_logged_[slot] && Logger::is_verbose()) {
+            Logger::debug("Slot " + std::to_string(slot) + ": no new report for " +
+                          std::to_string(age / 1000) + " ms, repeating the last one");
+        }
+        stale_logged_[slot] = true;
+    } else {
+        stale_logged_[slot] = false;
     }
-
-    return *current;
+    return sample;
 }
 
 int PSMoveManager::get_battery_level_for_slot(int slot) {
@@ -224,9 +226,7 @@ std::array<ControllerStatus, Constants::MAX_CONTROLLERS> PSMoveManager::get_stat
         st.identifying = now < s.identify_until_us.load();
         st.rumble = wanted_rumble(slot, now);
 
-        MoveSample* current = latest_atomic_[slot].load(std::memory_order_acquire);
-        if (current && st.connected) {
-            st.sample = *current;
+        if (st.connected && read_sample(slot, st.sample)) {
             st.has_sample = true;
             st.sample_age_us = now > st.sample.timestamp_us ? now - st.sample.timestamp_us : 0;
         }
@@ -308,13 +308,37 @@ void PSMoveManager::update_outputs(int slot, uint64_t now_us) {
     }
 }
 
+// Polling thread only (single writer).
 void PSMoveManager::publish_sample(int slot, const MoveSample& s) {
-    int current_buf = current_buffer_[slot].load();
-    int next_buf = 1 - current_buf;
-    samples_[slot][next_buf] = s;
-    current_buffer_[slot].store(next_buf);
-    latest_atomic_[slot].store(&samples_[slot][next_buf], std::memory_order_release);
-    has_data_[slot] = true;
+    SampleCell& c = samples_[slot];
+    uint64_t w[SampleCell::WORDS] = {};
+    std::memcpy(w, &s, sizeof(MoveSample));
+
+    uint32_t seq = c.seq.load(std::memory_order_relaxed);
+    c.seq.store(seq + 1, std::memory_order_relaxed);  // odd: write in progress
+    std::atomic_thread_fence(std::memory_order_release);
+    for (size_t i = 0; i < SampleCell::WORDS; i++) c.words[i].store(w[i], std::memory_order_relaxed);
+    c.seq.store(seq + 2, std::memory_order_release);
+    c.valid.store(true, std::memory_order_release);
+}
+
+void PSMoveManager::clear_sample(int slot) {
+    samples_[slot].valid.store(false, std::memory_order_release);
+}
+
+bool PSMoveManager::read_sample(int slot, MoveSample& out) const {
+    const SampleCell& c = samples_[slot];
+    if (!c.valid.load(std::memory_order_acquire)) return false;
+    uint64_t w[SampleCell::WORDS];
+    uint32_t before, after;
+    do {
+        before = c.seq.load(std::memory_order_acquire);
+        for (size_t i = 0; i < SampleCell::WORDS; i++) w[i] = c.words[i].load(std::memory_order_relaxed);
+        std::atomic_thread_fence(std::memory_order_acquire);
+        after = c.seq.load(std::memory_order_relaxed);
+    } while ((before & 1) || before != after);
+    std::memcpy(&out, w, sizeof(MoveSample));
+    return true;
 }
 
 // Synthetic motion and button presses so emulators and the GUI can be tested
@@ -387,8 +411,7 @@ void PSMoveManager::thread_main() {
                 }
 
                 if (!controllers_[slot]) {
-                    has_data_[slot] = false;
-                    latest_atomic_[slot].store(nullptr, std::memory_order_release);
+                    clear_sample(slot);
                     continue;
                 }
 
@@ -476,9 +499,9 @@ void PSMoveManager::thread_main() {
                 sample.send_timestamp_us = 0;
                 publish_sample(slot, sample);
 
-                if (slot == 0 && (++debug_counter % 1000) == 0) {
+                if (slot == 0 && Logger::is_verbose() && (++debug_counter % 1000) == 0) {
                     uint64_t processing_latency = ts - poll_timestamp;
-                    Logger::info("Slot " + std::to_string(slot) + " - " +
+                    Logger::debug("Slot " + std::to_string(slot) + " - " +
                                get_serial_safe(controllers_[slot]) +
                                " | Processing: " + std::to_string(processing_latency) + "us" +
                                " | Poll attempts: " + std::to_string(poll_attempts));
@@ -526,12 +549,17 @@ void PSMoveManager::scanner_thread_main() {
     while (running_) {
         // Check if scan is requested (pairing pauses scanning so the two
         // don't fight over the USB device)
-        if (!pause_scan_.load() && scan_requested_.exchange(false)) {
-            scanning_ = true;
-            Logger::debug("=== BACKGROUND CONTROLLER SCAN START ===");
-            scan_for_controllers_async();
-            Logger::debug("=== BACKGROUND SCAN COMPLETE ===");
-            scanning_ = false;
+        {
+            // Checked under scan_mutex_ so pause_scanning() can't miss a scan
+            // that is about to start.
+            std::lock_guard<std::mutex> scan_lock(scan_mutex_);
+            if (pause_scan_.load() == 0 && scan_requested_.exchange(false)) {
+                scanning_ = true;
+                Logger::debug("=== BACKGROUND CONTROLLER SCAN START ===");
+                scan_for_controllers_async();
+                Logger::debug("=== BACKGROUND SCAN COMPLETE ===");
+                scanning_ = false;
+            }
         }
 
         // Check every 100ms, but also periodically request scans
@@ -690,8 +718,7 @@ void PSMoveManager::integrate_pending_controllers() {
 
                 int slot = pending.target_slot;
                 controllers_[slot] = pending.controller;
-                has_data_[slot] = false;
-                latest_atomic_[slot].store(nullptr, std::memory_order_release);
+                clear_sample(slot);
                 set_slot_info(slot, pending.controller);
                 stats_[slot].reports_total = 0;
                 stats_[slot].polls_total = 0;
@@ -749,8 +776,7 @@ void PSMoveManager::remove_controller(int slot, const std::string& reason) {
     bool was_connected = stats_[slot].connected.load();
     psmove_disconnect(controllers_[slot]);
     controllers_[slot] = nullptr;
-    has_data_[slot] = false;
-    latest_atomic_[slot].store(nullptr, std::memory_order_release);
+    clear_sample(slot);
     stats_[slot].connected = false;
     stats_[slot].identify_applied = false;
     clear_slot_info(slot);
@@ -763,6 +789,16 @@ void PSMoveManager::remove_controller(int slot, const std::string& reason) {
         Logger::debug("Closed " + serial + " in slot " + std::to_string(slot) + ": " + reason);
     }
     request_scan();
+}
+
+void PSMoveManager::pause_scanning() {
+    pause_scan_.fetch_add(1);
+    // Wait for a scan in progress; the scanner re-checks the count under this lock.
+    std::lock_guard<std::mutex> lk(scan_mutex_);
+}
+
+void PSMoveManager::resume_scanning() {
+    pause_scan_.fetch_sub(1);
 }
 
 void PSMoveManager::request_pair(const std::string& serial) {
@@ -790,10 +826,7 @@ void PSMoveManager::pair_thread_main(std::string serial) {
     };
 
     // Stop the scanner from opening (and closing) the USB device under us.
-    pause_scan_ = true;
-    for (int i = 0; i < 200 && scanning_.load(); i++) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    }
+    pause_scanning();
 
     set_status(PairStatus::State::Running, "Looking for the controller on USB...");
     Logger::info("Pairing: looking for USB controller " + (serial.empty() ? std::string("(any)") : serial));
@@ -811,7 +844,7 @@ void PSMoveManager::pair_thread_main(std::string serial) {
     }
 
     if (!usb) {
-        pause_scan_ = false;
+        resume_scanning();
         set_status(PairStatus::State::Failed,
                    "No controller found on USB. Plug it in with a USB cable (data-capable, not charge-only) and try again.");
         Logger::error("Pairing failed: no USB controller found");
@@ -822,7 +855,7 @@ void PSMoveManager::pair_thread_main(std::string serial) {
     set_status(PairStatus::State::Running, "Writing this computer's Bluetooth address to " + found_serial + "...");
     int result = psmove_pair(usb);
     psmove_disconnect(usb);
-    pause_scan_ = false;
+    resume_scanning();
     request_scan();
 
     if (result) {

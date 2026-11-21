@@ -192,7 +192,7 @@ bool contains_ci(const std::string& hay, const char* needle) {
 } // namespace
 
 GuiPanels::GuiPanels(DSUServer& server, const Config& launch_config)
-    : server_(server) {
+    : server_(server), nav_pair_(server.controllers()) {
     config_ = server_.get_config();
     config_.config_path = launch_config.config_path;
     last_rate_update_ = Clock::now();
