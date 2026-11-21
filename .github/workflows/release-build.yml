@@ -1,24 +1,109 @@
 name: Build and Release
 
+# One-click release:
+#   1. Draft a release on GitHub (Releases > Draft a new release): pick or type
+#      the new tag (e.g. v3.1.1), the target branch, and write the notes. Save
+#      it as a draft. The tag doesn't need to exist yet.
+#   2. Run this workflow from the Actions tab. It builds and smoke-tests every
+#      platform, attaches all the binaries to the draft, and only then
+#      publishes it, so a published release never waits for its downloads.
+#
+# Publishing creates the tag (if it doesn't exist) on exactly the commit that
+# was built, even if the target branch moved during the run. If anything fails,
+# nothing is published and the draft stays as it was; fix it and run again
+# (already attached binaries are replaced).
 on:
-  # Pushing a v* tag builds every platform and attaches the binaries to a DRAFT
-  # release. Review the draft, then publish it by hand.
-  push:
-    tags: ['v*']
-  # Re-run for an existing tag (e.g. after fixing the workflow).
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Existing tag to build and attach to a draft release (e.g. v3.1.0)'
-        required: true
+        description: 'Tag of the draft release to build and publish (e.g. v3.1.1). Leave empty if there is only one draft.'
+        required: false
         type: string
 
 permissions:
   contents: write
-  actions: read
+
+# Never run two releases at once: both could publish.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  GH_TOKEN: ${{ github.token }}
+  GH_REPO: ${{ github.repository }}
 
 jobs:
+  # Finds the draft and pins the commit to build, so every platform builds the
+  # same commit and the tag lands on it.
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.draft.outputs.tag }}
+      sha: ${{ steps.draft.outputs.sha }}
+      release_id: ${{ steps.draft.outputs.release_id }}
+    steps:
+      - name: Find the draft release and the commit to build
+        id: draft
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          all=$(gh api --paginate "repos/$GH_REPO/releases?per_page=100" \
+                  --jq '.[] | {id, tag_name, draft, target_commitish}' | jq -s .)
+
+          published() { jq -e --arg t "$1" 'any(.[]; .tag_name == $t and (.draft | not))' <<<"$all" >/dev/null; }
+
+          if [ -n "$INPUT_TAG" ]; then
+            if published "$INPUT_TAG"; then
+              echo "::error::A published release for $INPUT_TAG already exists."
+              exit 1
+            fi
+            drafts=$(jq --arg t "$INPUT_TAG" '[.[] | select(.draft and .tag_name == $t)]' <<<"$all")
+          else
+            drafts=$(jq '[.[] | select(.draft)]' <<<"$all")
+          fi
+          count=$(jq length <<<"$drafts")
+          if [ "$count" = 0 ]; then
+            echo "::error::No draft release${INPUT_TAG:+ with tag $INPUT_TAG} found. Draft the release on GitHub first."
+            exit 1
+          elif [ "$count" != 1 ]; then
+            echo "::error::Found $count draft releases ($(jq -r '[.[].tag_name] | join(", ")' <<<"$drafts")):" \
+                 "pass the tag of the one to publish${INPUT_TAG:+, and delete the duplicates}."
+            exit 1
+          fi
+
+          tag=$(jq -r '.[0].tag_name' <<<"$drafts")
+          target=$(jq -r '.[0].target_commitish' <<<"$drafts")
+          id=$(jq -r '.[0].id' <<<"$drafts")
+
+          if ! [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "::error::Draft tag '$tag' doesn't look like a version tag (vX.Y.Z or vX.Y.Z-suffix)."
+            exit 1
+          fi
+          if published "$tag"; then
+            echo "::error::A published release for $tag already exists."
+            exit 1
+          fi
+
+          # An existing tag decides the commit; otherwise the draft's target
+          # (usually a branch), resolved now so the build can't drift.
+          if gh api "repos/$GH_REPO/git/ref/tags/$tag" >/dev/null 2>&1; then
+            sha=$(gh api "repos/$GH_REPO/commits/$tag" --jq .sha)
+            echo "Tag $tag exists: building $sha"
+          else
+            sha=$(gh api "repos/$GH_REPO/commits/$target" --jq .sha)
+            echo "Tag $tag will be created on publish: building $target at $sha"
+          fi
+
+          {
+            echo "tag=$tag"
+            echo "sha=$sha"
+            echo "release_id=$id"
+          } >> "$GITHUB_OUTPUT"
+          echo "### Releasing $tag from \`$sha\`" >> "$GITHUB_STEP_SUMMARY"
+
   build:
+    needs: prepare
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -38,8 +123,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag || github.ref }}
-          fetch-depth: 0  # full history and tags, so the GUI's version label reads e.g. v3.0.0
+          ref: ${{ needs.prepare.outputs.sha }}
+          fetch-depth: 0  # full history and tags, so the GUI's version label reads e.g. v3.1.1
+
+      # The tag may only be created when the release is published. Tag the
+      # checkout locally so `git describe` (the version label) already says it.
+      - name: Tag the checkout with the release version
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          git rev-parse -q --verify "refs/tags/$TAG" >/dev/null || git tag "$TAG"
+          echo "Version: $(git describe --tags --always --dirty)"
 
       - uses: actions/setup-python@v5
         with:
@@ -96,11 +190,15 @@ jobs:
           path: artifacts/${{ steps.artifact.outputs.name }}
           if-no-files-found: error
 
-  # One job creates the release, so the parallel builds can't race to create
-  # several drafts for the same tag.
-  release:
-    needs: build
+  # Runs only if every platform built and passed its checks. Attaches all the
+  # binaries first, then publishes, so the release appears complete.
+  publish:
+    needs: [prepare, build]
     runs-on: ubuntu-latest
+    env:
+      TAG: ${{ needs.prepare.outputs.tag }}
+      SHA: ${{ needs.prepare.outputs.sha }}
+      RELEASE_ID: ${{ needs.prepare.outputs.release_id }}
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -111,12 +209,38 @@ jobs:
       - name: List binaries
         run: ls -l artifacts
 
-      - name: Create draft release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ inputs.tag || github.ref_name }}
-          draft: true
-          files: artifacts/*
-          fail_on_unmatched_files: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Check the release is still a draft
+        run: |
+          set -euo pipefail
+          if [ "$(gh api "repos/$GH_REPO/releases/$RELEASE_ID" --jq .draft)" != "true" ]; then
+            echo "::error::Release $TAG is no longer a draft (published or deleted during the run). Nothing was changed."
+            exit 1
+          fi
+
+      # By release id, which works for drafts. An asset with the same name
+      # (from an earlier, failed run) is replaced.
+      - name: Attach binaries to the draft
+        run: |
+          set -euo pipefail
+          for f in artifacts/*; do
+            name=$(basename "$f")
+            old=$(gh api "repos/$GH_REPO/releases/$RELEASE_ID/assets?per_page=100" \
+                    --jq ".[] | select(.name == \"$name\") | .id")
+            if [ -n "$old" ]; then
+              gh api -X DELETE "repos/$GH_REPO/releases/assets/$old"
+            fi
+            curl -sS --fail-with-body -X POST \
+              -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+              -H "Content-Type: application/octet-stream" --data-binary "@$f" \
+              "https://uploads.github.com/repos/$GH_REPO/releases/$RELEASE_ID/assets?name=$name" \
+              | jq -r '"Attached \(.name) (\(.size) bytes)"'
+          done
+
+      # Creates the tag on the built commit if it doesn't exist yet.
+      - name: Publish the release
+        run: |
+          set -euo pipefail
+          url=$(gh api -X PATCH "repos/$GH_REPO/releases/$RELEASE_ID" \
+                  -F draft=false -f target_commitish="$SHA" --jq .html_url)
+          echo "Published $TAG: $url"
+          echo "Published [$TAG]($url)" >> "$GITHUB_STEP_SUMMARY"

@@ -87,6 +87,13 @@ All build workflows, including **Build and Release**, run the same checks from `
 
 You can run the script locally too, e.g. `.github/scripts/ci_binary.sh smoke build/dsu_server_psmove_linux_x64`.
 
+### Releasing (maintainers)
+
+1. On GitHub, **Releases → Draft a new release**: type the new tag (e.g. `v3.1.1`; it doesn't need to exist yet), choose the target branch, write the notes, and **Save draft**.
+2. In the **Actions** tab, run **Build and Release** (leave the tag empty if that is the only draft). It builds and checks every platform, attaches all the binaries to the draft, and then publishes it. The tag is created on the exact commit that was built.
+
+If any platform fails, nothing is published and the draft is left as it was; fix the problem and run the workflow again. Don't push release tags by hand: the release creates the tag, and pushing a tag doesn't start a build.
+
 ## Contributing Guidelines
 
 ### Code Style
