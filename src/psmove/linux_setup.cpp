@@ -13,25 +13,33 @@
 
 namespace {
 
-const char* const kUdevPath = "/etc/udev/rules.d/99-psmove.rules";
+// Numbered below 73 so systemd-logind's 73-seat-late.rules sees the uaccess tag.
+const char* const kUdevPath = "/etc/udev/rules.d/70-psmove.rules";
+// Earlier versions (and PSMoveAPI's contrib file) used this name with MODE="0666".
+const char* const kOldUdevPath = "/etc/udev/rules.d/99-psmove.rules";
 const char* const kInputConf = "/etc/bluetooth/input.conf";
 
-// Same content as PSMoveAPI's contrib/99-psmove.rules (without the obsolete libusb line).
+// The devices from PSMoveAPI's contrib/99-psmove.rules, but with TAG+="uaccess"
+// instead of MODE="0666": access goes to the user logged in at the computer
+// (systemd-logind), not to every account and process on the system.
 const char* const kUdevRules =
+    "# Installed by PSMove-DSU --linux-setup. uaccess gives the user logged in at this\n"
+    "# computer access; it must sort before 73-seat-late.rules to take effect.\n"
+    "\n"
     "# hidraw interface: Bluetooth (=0005), PS Move Motion Controller (=054c:03d5)\n"
-    "SUBSYSTEM==\"hidraw\", KERNELS==\"0005:054C:03D5.*\", MODE=\"0666\"\n"
+    "SUBSYSTEM==\"hidraw\", KERNELS==\"0005:054C:03D5.*\", TAG+=\"uaccess\"\n"
     "\n"
     "# hidraw interface: USB (=0003), PS Move Motion Controller (=054c:03d5)\n"
-    "SUBSYSTEM==\"hidraw\", KERNELS==\"0003:054C:03D5.*\", MODE=\"0666\"\n"
+    "SUBSYSTEM==\"hidraw\", KERNELS==\"0003:054C:03D5.*\", TAG+=\"uaccess\"\n"
     "\n"
     "# hidraw interface: Bluetooth (=0005), PS4 Move Motion Controller, CECH-ZCM2 (=054c:0c5e)\n"
-    "SUBSYSTEM==\"hidraw\", KERNELS==\"0005:054C:0C5E.*\", MODE=\"0666\"\n"
+    "SUBSYSTEM==\"hidraw\", KERNELS==\"0005:054C:0C5E.*\", TAG+=\"uaccess\"\n"
     "\n"
     "# hidraw interface: USB (=0003), PS4 Move Motion Controller, CECH-ZCM2 (=054c:0c5e)\n"
-    "SUBSYSTEM==\"hidraw\", KERNELS==\"0003:054C:0C5E.*\", MODE=\"0666\"\n"
+    "SUBSYSTEM==\"hidraw\", KERNELS==\"0003:054C:0C5E.*\", TAG+=\"uaccess\"\n"
     "\n"
     "# hidraw interface: USB (=0003), PS Move Navigation Controller (=054c:042f), needed by --pair-nav\n"
-    "SUBSYSTEM==\"hidraw\", KERNELS==\"0003:054C:042F.*\", MODE=\"0666\"\n";
+    "SUBSYSTEM==\"hidraw\", KERNELS==\"0003:054C:042F.*\", TAG+=\"uaccess\"\n";
 
 bool ask(const std::string& question, bool default_yes) {
     std::cout << question << (default_yes ? " [Y/n] " : " [y/N] ") << std::flush;
@@ -64,16 +72,33 @@ std::string trim(const std::string& s) {
 }
 
 void install_udev_rules() {
+    bool changed = false;
+
+    std::string old_rules;
+    if (read_file(kOldUdevPath, old_rules)) {
+        std::cout << "  Found " << kOldUdevPath << ", an older rules file that makes the controllers\n"
+                     "  accessible to every user and process on this computer (MODE=\"0666\").\n";
+        if (ask("  Remove it? The new rules replace it.", true)) {
+            if (std::remove(kOldUdevPath) == 0) {
+                std::cout << "  Removed " << kOldUdevPath << ".\n";
+                changed = true;
+            } else {
+                std::cout << "  Could not remove " << kOldUdevPath << ".\n";
+            }
+        }
+    }
+
     std::string existing;
     if (read_file(kUdevPath, existing) && existing == kUdevRules) {
         std::cout << "  udev rules are already installed.\n";
-        return;
-    }
-    if (!write_file(kUdevPath, kUdevRules)) {
+    } else if (!write_file(kUdevPath, kUdevRules)) {
         std::cout << "  Could not write " << kUdevPath << ".\n";
-        return;
+    } else {
+        std::cout << "  Wrote " << kUdevPath << ".\n";
+        changed = true;
     }
-    std::cout << "  Wrote " << kUdevPath << ".\n";
+    if (!changed) return;
+
     int rc = std::system("udevadm control --reload-rules && udevadm trigger");
     if (rc != 0) std::cout << "  Could not reload udev; run 'sudo udevadm trigger' or reboot.\n";
     else std::cout << "  Reloaded udev rules. Replug the controller if it was already connected.\n";
@@ -148,7 +173,9 @@ int run_linux_setup() {
         return 0;
     }
 
-    std::cout << "\nudev rules let you use controllers without root (they make PS Move and Navigation controller hidraw devices world-accessible).\n";
+    std::cout << "\nudev rules let you use controllers without root. They give the user logged in at this computer\n"
+                 "access to the PS Move and Navigation controller (systemd-logind \"uaccess\"). Over SSH or as a\n"
+                 "system service with nobody logged in locally, run as root or add your own rule instead.\n";
     if (ask("Install them to " + std::string(kUdevPath) + "?", true)) install_udev_rules();
 
     std::cout << "\nMany distros' BlueZ rejects unbonded input devices like the PS Move. If your controller pairs but\n"

@@ -253,7 +253,7 @@ If you get permission errors accessing a controller, install the udev rules (bui
 ```bash
 sudo ./dsu_server_psmove --linux-setup
 ```
-They make the PS Move (USB and Bluetooth) and the Navigation controller (USB) accessible without root. Replug the controllers afterwards. With the rules installed, the server and Navigation controller pairing run without root. Pairing a Move still needs `sudo`, because it registers the controller with BlueZ.
+They install `/etc/udev/rules.d/70-psmove.rules`, which gives the user logged in at the computer access to the PS Move (USB and Bluetooth) and the Navigation controller (USB) through systemd-logind's `uaccess` tag. Replug the controllers afterwards. Older versions installed `99-psmove.rules`, which made the devices writable by every user and process; the setup offers to remove it. Over SSH, or as a system service with nobody logged in locally, `uaccess` doesn't apply: run as root or write your own rule (for example `GROUP="<your group>", MODE="0660"`). With the rules installed, the server and Navigation controller pairing run without root. Pairing a Move still needs `sudo`, because it registers the controller with BlueZ.
 
 ## Technical Details
 
