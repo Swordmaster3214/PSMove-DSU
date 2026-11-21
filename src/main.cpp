@@ -32,6 +32,18 @@ void print_usage(const char* exe) {
         "  --licenses          Show the license of this program and the code it includes\n"
         "  --help              Show this help\n";
 }
+
+// Parses a whole argument as an integer in [lo, hi]; prints why not otherwise.
+bool parse_arg(const char* option, const char* text, int lo, int hi, int& out) {
+    char* end = nullptr;
+    long v = std::strtol(text, &end, 10);
+    if (end == text || *end != '\0' || v < lo || v > hi) {
+        std::cerr << "Invalid value '" << text << "' for " << option << " (expected " << lo << "-" << hi << ")\n";
+        return false;
+    }
+    out = int(v);
+    return true;
+}
 } // namespace
 
 int main(int argc, char** argv) {
@@ -75,18 +87,24 @@ int main(int argc, char** argv) {
         } else if (std::strcmp(argv[i], "--config") == 0 && i + 1 < argc) {
             ++i;  // handled above
         } else if (std::strcmp(argv[i], "--simulate") == 0 && i + 1 < argc) {
-            config.simulate = std::atoi(argv[++i]);
+            if (!parse_arg("--simulate", argv[++i], 0, Constants::MAX_CONTROLLERS, config.simulate)) return 2;
         } else if (std::strcmp(argv[i], "--map") == 0 && i + 3 < argc) {
-            config.map_pitch = std::atoi(argv[++i]);
-            config.map_yaw = std::atoi(argv[++i]);
-            config.map_roll = std::atoi(argv[++i]);
+            if (!parse_arg("--map", argv[i + 1], 0, 2, config.map_pitch) ||
+                !parse_arg("--map", argv[i + 2], 0, 2, config.map_yaw) ||
+                !parse_arg("--map", argv[i + 3], 0, 2, config.map_roll)) return 2;
+            i += 3;
             std::cout << "Mapping set pitch=" << config.map_pitch
                       << " yaw=" << config.map_yaw
                       << " roll=" << config.map_roll << "\n";
         } else if (std::strcmp(argv[i], "--flip") == 0 && i + 3 < argc) {
-            config.flip_pitch = std::atoi(argv[++i]) != 0;
-            config.flip_yaw = std::atoi(argv[++i]) != 0;
-            config.flip_roll = std::atoi(argv[++i]) != 0;
+            int fp, fy, fr;
+            if (!parse_arg("--flip", argv[i + 1], 0, 1, fp) ||
+                !parse_arg("--flip", argv[i + 2], 0, 1, fy) ||
+                !parse_arg("--flip", argv[i + 3], 0, 1, fr)) return 2;
+            i += 3;
+            config.flip_pitch = fp != 0;
+            config.flip_yaw = fy != 0;
+            config.flip_roll = fr != 0;
             std::cout << "Flip set pitch=" << config.flip_pitch
                       << " yaw=" << config.flip_yaw
                       << " roll=" << config.flip_roll << "\n";
