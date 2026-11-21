@@ -32,7 +32,7 @@ private:
     void receive_loop();
     
     int port_;
-    int sock_;
+    socket_t sock_;
     std::atomic<bool> running_;
     MessageHandler message_handler_;
     std::thread receive_thread_;

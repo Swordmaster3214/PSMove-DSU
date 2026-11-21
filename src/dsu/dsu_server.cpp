@@ -225,8 +225,6 @@ void DSUServer::handle_message(const uint8_t* data, size_t len, const sockaddr_i
 
             Logger::debug("Replied INFO for slot " + std::to_string(slot) +
                          " (connected: " + (connected ? "yes" : "no") + ")");
-
-            std::this_thread::sleep_for(std::chrono::microseconds(500)); // Reduced delay
         }
 
     } else if (msg_type == Constants::MSG_DATA) {
@@ -470,12 +468,14 @@ void DSUServer::send_thread_main() {
     }
 }
 
+// Console summary for non-verbose runs: printed when the number of
+// controllers or receiving clients changes, so the log stays readable.
 void DSUServer::status_thread_main() {
-    int status_counter = 0;
+    int last_controllers = -1, last_clients = -1;
 
     while (running_.load()) {
-        // Sleep in small steps so stop() doesn't wait up to 5 s.
-        for (int i = 0; i < 50 && running_.load(); i++) {
+        // Check once a second, in small steps so stop() doesn't wait.
+        for (int i = 0; i < 10 && running_.load(); i++) {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
         if (!running_.load()) break;
@@ -492,9 +492,11 @@ void DSUServer::status_thread_main() {
             }
         }
 
-        if ((++status_counter % 6) == 0 || connected_count > 0 || subscriber_count > 0) {
-            Logger::info("Status: " + std::to_string(connected_count) + " controllers, " +
-                        std::to_string(subscriber_count) + " clients (optimized mode)");
+        if (connected_count != last_controllers || subscriber_count != last_clients) {
+            Logger::info("Status: " + std::to_string(connected_count) + " controller(s), " +
+                         std::to_string(subscriber_count) + " client(s) receiving data");
+            last_controllers = connected_count;
+            last_clients = subscriber_count;
         }
     }
 }

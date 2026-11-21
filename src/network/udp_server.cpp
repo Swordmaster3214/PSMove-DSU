@@ -8,7 +8,7 @@
 #include <processthreadsapi.h>
 #endif
 
-UDPServer::UDPServer(int port) : port_(port), sock_(-1), running_(false) {
+UDPServer::UDPServer(int port) : port_(port), sock_(INVALID_SOCKET_HANDLE), running_(false) {
 #ifdef _WIN32
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
@@ -29,7 +29,7 @@ bool UDPServer::start() {
     
 #ifdef _WIN32
     sock_ = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (sock_ == INVALID_SOCKET) {
+    if (sock_ == INVALID_SOCKET_HANDLE) {
         last_error_ = "socket() failed: " + std::to_string(WSAGetLastError());
         Logger::error(last_error_);
         return false;
@@ -112,7 +112,7 @@ bool UDPServer::start() {
         }
         Logger::error("bind() failed: " + last_error_);
         CLOSE_SOCKET(sock_);
-        sock_ = -1;
+        sock_ = INVALID_SOCKET_HANDLE;
         return false;
     }
     last_error_.clear();
@@ -129,14 +129,14 @@ void UDPServer::stop() {
     if (receive_thread_.joinable()) {
         receive_thread_.join();
     }
-    if (sock_ >= 0) {
+    if (sock_ != INVALID_SOCKET_HANDLE) {
         CLOSE_SOCKET(sock_);
-        sock_ = -1;
+        sock_ = INVALID_SOCKET_HANDLE;
     }
 }
 
 void UDPServer::send_to(const std::vector<uint8_t>& data, const sockaddr_in& addr) {
-    if (!running_.load() || sock_ < 0) return;
+    if (!running_.load() || sock_ == INVALID_SOCKET_HANDLE) return;
     
 #ifdef _WIN32
     int result = sendto(sock_, (char*)data.data(), (int)data.size(), 0, (sockaddr*)&addr, sizeof(addr));
@@ -157,7 +157,7 @@ void UDPServer::send_to(const std::vector<uint8_t>& data, const sockaddr_in& add
 }
 
 void UDPServer::send_to_multiple(const std::vector<uint8_t>& data, const std::vector<sockaddr_in>& addresses) {
-    if (!running_.load() || sock_ < 0) return;
+    if (!running_.load() || sock_ == INVALID_SOCKET_HANDLE) return;
     
     // OPTIMIZATION: Batch send operations
     for (const auto& addr : addresses) {
@@ -181,34 +181,48 @@ void UDPServer::receive_loop() {
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
 #endif
     
+    // Sleep until a packet arrives instead of polling the socket: a request is
+    // handled as soon as it lands, and an idle server uses no CPU. The timeout
+    // only bounds how long stop() waits for this thread.
+    constexpr int WAIT_TIMEOUT_MS = 100;
+
     while (running_.load()) {
-        sockaddr_in from{};
-        socklen_t from_len = sizeof(from);
-        
 #ifdef _WIN32
-        int bytes = recvfrom(sock_, (char*)buffer, sizeof(buffer), 0, (sockaddr*)&from, &from_len);
-        if (bytes == SOCKET_ERROR) {
-            int error = WSAGetLastError();
-            if (error == WSAEWOULDBLOCK || error == WSAEINTR) {
-                std::this_thread::sleep_for(std::chrono::microseconds(100));
-                continue;
-            }
-        }
+        WSAPOLLFD pfd{};
+        pfd.fd = sock_;
+        pfd.events = POLLRDNORM;
+        int ready = WSAPoll(&pfd, 1, WAIT_TIMEOUT_MS);
 #else
-        ssize_t bytes = recvfrom(sock_, buffer, sizeof(buffer), MSG_DONTWAIT, (sockaddr*)&from, &from_len);
-        if (bytes < 0) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
-                std::this_thread::sleep_for(std::chrono::microseconds(100));
-                continue;
-            }
-        }
+        pollfd pfd{};
+        pfd.fd = sock_;
+        pfd.events = POLLIN;
+        int ready = ::poll(&pfd, 1, WAIT_TIMEOUT_MS);
 #endif
-        
         if (!running_.load()) break;
-        if (bytes < 0) continue;
-        
-        if (message_handler_) {
-            message_handler_(buffer, bytes, from);
+        if (ready <= 0) continue;  // Timeout, or interrupted
+
+        // Drain everything that queued up while we were handling the last one.
+        while (running_.load()) {
+            sockaddr_in from{};
+            socklen_t from_len = sizeof(from);
+#ifdef _WIN32
+            int bytes = recvfrom(sock_, (char*)buffer, sizeof(buffer), 0, (sockaddr*)&from, &from_len);
+            // WSAEWOULDBLOCK: queue empty. WSAECONNRESET: an ICMP "port
+            // unreachable" from a client that went away; not fatal for UDP.
+            if (bytes == SOCKET_ERROR) {
+                if (WSAGetLastError() == WSAECONNRESET) continue;
+                break;
+            }
+#else
+            ssize_t bytes = recvfrom(sock_, buffer, sizeof(buffer), MSG_DONTWAIT, (sockaddr*)&from, &from_len);
+            if (bytes < 0) {
+                if (errno == EINTR) continue;
+                break;  // EAGAIN/EWOULDBLOCK: queue empty
+            }
+#endif
+            if (message_handler_) {
+                message_handler_(buffer, size_t(bytes), from);
+            }
         }
     }
 }
