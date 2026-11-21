@@ -110,3 +110,51 @@ jobs:
       - name: GUI check (virtual X server)
         timeout-minutes: 2
         run: .github/scripts/ci_binary.sh gui "${{ steps.exe.outputs.path }}"
+
+  # Runs the built server against a real Dolphin Emulator (two simulated
+  # controllers mapped to Wii Remotes 1 and 2) and fails if Dolphin's DSU
+  # subscriptions are missing or time out. Informational: not a required
+  # check, so a Dolphin packaging hiccup can't block a merge.
+  dolphin-check:
+    name: Dolphin check
+    needs: build-linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Download the x64 build
+        uses: actions/download-artifact@v4
+        with:
+          name: dsu_server_psmove_linux_x64
+          path: dl
+
+      - name: Unpack
+        run: |
+          mkdir -p bin
+          tar -xzf dl/*.tar.gz -C bin
+          ls -l bin
+
+      # xvfb gives Dolphin a display. libbluetooth/libdbus/libudev are runtime
+      # dependencies of the server binary itself.
+      - name: Install Dolphin and a virtual display
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dolphin-emu xvfb libgl1 libglx-mesa0 libgl1-mesa-dri \
+            libbluetooth3 libdbus-1-3 libudev1
+          which dolphin-emu
+
+      - name: Server + Dolphin
+        run: |
+          # Without a working D-Bus session, Dolphin's Qt UI blocks forever in
+          # a D-Bus call, so turn D-Bus off. Software GL avoids needing a GPU.
+          export DBUS_SESSION_BUS_ADDRESS=disabled:
+          export LIBGL_ALWAYS_SOFTWARE=1
+          export QT_LOGGING_RULES="qt.core.qobject.connect=false"
+          xvfb-run -a python3 test/run_dolphin_check.py \
+            bin/dsu_server_psmove_linux_x64 "$(which dolphin-emu)" --seconds 120

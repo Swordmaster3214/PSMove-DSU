@@ -95,3 +95,41 @@ jobs:
       - name: Smoke test (server + DSU protocol)
         timeout-minutes: 3
         run: .github/scripts/ci_binary.sh smoke "${{ steps.exe.outputs.path }}"
+
+  # Runs the built server against a real Dolphin Emulator (two simulated
+  # controllers mapped to Wii Remotes 1 and 2) and fails if Dolphin's DSU
+  # subscriptions are missing or time out. Informational: not a required check.
+  dolphin-check:
+    name: Dolphin check
+    needs: build-windows
+    runs-on: windows-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Download the x64 build
+        uses: actions/download-artifact@v4
+        with:
+          name: dsu_server_psmove_win64.exe
+          path: bin
+
+      # Pinned to a stable release so the check doesn't change under us.
+      - name: Download Dolphin
+        env:
+          DOLPHIN_VERSION: '2609'
+          DOLPHIN_SHA256: '1aa25785b7d4cb76259754c5fbcdd8856857b8e7bb4e523c57a8ac56665fba75'
+        run: |
+          curl -fsSL -o dolphin.7z "https://dl.dolphin-emu.org/releases/${DOLPHIN_VERSION}/dolphin-${DOLPHIN_VERSION}-x64.7z"
+          echo "${DOLPHIN_SHA256}  dolphin.7z" | sha256sum -c -
+          7z x -y dolphin.7z -odolphin > /dev/null
+          ls dolphin/Dolphin-x64/Dolphin.exe
+
+      - name: Server + Dolphin
+        run: |
+          python test/run_dolphin_check.py \
+            bin/dsu_server_psmove_win64.exe dolphin/Dolphin-x64/Dolphin.exe --seconds 120
